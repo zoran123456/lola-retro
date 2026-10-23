@@ -1,7 +1,7 @@
 # Lola Retro
 
 **A CRT shader that simulates the whole analog chain, not just scanlines. For RetroArch, with versions for
-Amiberry (Amiga), 86Box (PC) and Unity (your own games).**
+Amiberry (Amiga), 86Box (PC), Kodi and Unity (your own games).**
 
 `console video encoder → cable → TV decoder → electron beam → phosphor mask → glass`
 
@@ -58,7 +58,7 @@ little rainbow, just as it did on a living-room TV. On RGB you see the stripes t
 Default core settings are fine for most systems. The few that matter are in
 [RECOMMENDED-CORES.md](shaders/lola-retro/RECOMMENDED-CORES.md).
 
-Using Amiberry or 86Box instead? See [Amiberry](#amiberry) and [86Box](#86box) below. Making a game in Unity?
+Using Amiberry, 86Box or Kodi instead? See [Amiberry](#amiberry), [86Box](#86box) and [Kodi](#kodi) below. Making a game in Unity?
 See [Unity](#unity).
 
 Every preset also comes in a `flat/` version without curvature:
@@ -209,6 +209,14 @@ sharper than any real tube and easy on the eyes for long work on the desktop (ea
 
 <sub>The same part of the screen through each preset, 1:1 on that 3840×2560 screen. The average monitor is soft at
 1024×768, as many were; the better ones keep the text sharp; `extreme` shows the gaps between the lines.</sub>
+
+## Kodi
+
+Every preset also comes as GLSL for the game player in [Kodi](https://kodi.tv) 22 and newer, on OpenGL and
+OpenGL ES (Linux, LibreELEC, Android, macOS): [`kodi/lola-retro`](kodi/lola-retro) has all fifteen, curved and
+flat, on the same passes and with the same values as in RetroArch. Kodi lists the presets of its
+game.shader.presets add-on, so they go into that add-on's list; how, and the settings, are in its
+[README](kodi/lola-retro/README.md).
 
 ## Unity
 
