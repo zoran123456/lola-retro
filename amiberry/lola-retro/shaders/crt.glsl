@@ -803,16 +803,26 @@ float slotGate(float x, float y)
     return smoothstep(0.0, 0.12, yy) * smoothstep(1.0, 0.88, yy);
 }
 
-// Mask averaged over 2x2 points (a and b are the corners) to keep moire down.
-// Parts that only depend on x are evaluated once per column.
-vec3 maskAvg(vec2 a, vec2 b, float mt)
+// The mask at 2 points across a screen pixel, or 2x2 for the slot and dot masks (a and b are the
+// corners), to keep moire down. The CRT pass takes each point's light through the display's
+// shoulder before averaging them (see there). Parts that only depend on x are evaluated once per
+// column. Returns how many points s holds.
+int maskPoints(vec2 a, vec2 b, float mt, inout vec3 s[4])
 {
-    if (mt > 3.5) return vec3(0.5 * (lenticular(a.x) + lenticular(b.x)));
-    if (mt > 2.5) return 0.25 * (shadowDots(a) + shadowDots(vec2(b.x, a.y)) + shadowDots(vec2(a.x, b.y)) + shadowDots(b));
+    if (mt > 3.5) { s[0] = vec3(lenticular(a.x)); s[1] = vec3(lenticular(b.x)); return 2; }
+    if (mt > 2.5)
+    {
+        s[0] = shadowDots(a); s[1] = shadowDots(vec2(b.x, a.y)); s[2] = shadowDots(vec2(a.x, b.y)); s[3] = shadowDots(b);
+        return 4;
+    }
     vec3 ma = stripes(a.x), mb = stripes(b.x);
     if (mt > 1.5)
-        return 0.25 * (ma * (slotGate(a.x, a.y) + slotGate(a.x, b.y)) + mb * (slotGate(b.x, a.y) + slotGate(b.x, b.y)));
-    return 0.5 * (ma + mb);
+    {
+        s[0] = ma * slotGate(a.x, a.y); s[1] = ma * slotGate(a.x, b.y); s[2] = mb * slotGate(b.x, a.y); s[3] = mb * slotGate(b.x, b.y);
+        return 4;
+    }
+    s[0] = ma; s[1] = mb;
+    return 2;
 }
 
 // Mask on screen pixels (Mask on screen pixels 1-6): the same mask with one triad every w screen
@@ -2750,46 +2760,69 @@ void lr_main()
         bool onPx = LR_MASK_PX > 0.5 && mt > 0.5 && mt < 3.5;
         float wPx = LR_MASK_PX < 1.5 ? clamp(floor(pitchPx + 0.5), 2.0, 6.0) : LR_MASK_PX;
         float str = LR_MASK_STR * (onPx ? 1.0 : smoothstep(1.6, 2.6, pitchPx));
+        // the mask's share of the light at each of its points in this pixel (one without a mask or on
+        // screen pixels, where pixelMask has averaged its own points)
+        vec3 mf[4];
+        for (int i = 0; i < 4; i++) mf[i] = vec3(1.0);
+        int nm = 1;
         if (mt > 0.5 && str > 0.0)
         {
-            vec3 m;
             float avg;
             if (onPx)
             {
                 vec4 pm = pixelMask(floor(vTexCoord * LR_OutputSize.xy), wPx, mt);
-                m = pm.rgb;
+                mf[0] = pm.rgb;
                 avg = pm.a;
             }
             else
             {
                 vec2 mp = ut * tubePx / pitchPx;
                 float dp = 0.25 / pitchPx;
-                m = maskAvg(mp - dp, mp + dp, mt);
+                nm = maskPoints(mp - dp, mp + dp, mt, mf);
                 avg = mt < 1.5 ? 0.367 : (mt < 2.5 ? 0.31 : (mt < 3.5 ? 0.19 : 0.84));
             }
-            col *= mix(vec3(1.0 - str), vec3(1.0), m) / mix(1.0 - str, 1.0, avg);
+            for (int i = 0; i < 4; i++) mf[i] = mix(vec3(1.0 - str), vec3(1.0), mf[i]) / mix(1.0 - str, 1.0, avg);
         }
+        float damper = 1.0;
         if (mt > 0.5 && mt < 1.5)
         {
             // aperture grille: the two horizontal damper wires
             float hp = tubePx.y;
             float sw = max(0.45, hp / 4000.0);
             float d1 = (ut.y - 1.0 / 3.0) * hp, d2 = (ut.y - 2.0 / 3.0) * hp;
-            col *= 1.0 - 0.2 * (exp(-0.5 * d1 * d1 / (sw * sw)) + exp(-0.5 * d2 * d2 / (sw * sw)));
+            damper = 1.0 - 0.2 * (exp(-0.5 * d1 * d1 / (sw * sw)) + exp(-0.5 * d2 * d2 / (sw * sw)));
         }
-
-        col *= vWhite;
 
         // halation: light diffused in the glass (energy-conserving)
         float gy = show ? ((Lf / rps - 0.5) * smap.y + smap.z + 0.5) / srcH : Lf / BH;
         float gin = smoothstep(-0.03, 0.03, gy) * smoothstep(1.03, 0.97, gy) * smoothstep(-0.03, 0.03, xs) * smoothstep(1.03, 0.97, xs);
-        col = mix(col, textureLod(LR_Glow, vec2(xs, gy), 0.0).rgb * vWhite, LR_GLOW * gin);
+        vec3 glow = textureLod(LR_Glow, vec2(xs, gy), 0.0).rgb * vWhite;
+        float gw = LR_GLOW * gin;
 
         // the tube's phosphors are not exactly the display's primaries; colours outside
         // the display gamut are clipped in SDR and kept in HDR
-        if (vPhos > 1.5) col = phosphorMatrix(vPhos) * col;
-
-        col = shoulder(col);
+        bool phos = vPhos > 1.5;
+        mat3 pm3 = phos ? phosphorMatrix(vPhos) : mat3(1.0);
+        // Each mask point's light goes through the display's shoulder on its own, and the pixel shows
+        // their average. Where a lit stripe is brighter than the display can show, the shoulder
+        // squeezes the stripe itself, as the eye would see it squeezed at any position. Squeezing
+        // the pixel's average instead made how much a pixel lost depend on where the stripes fell
+        // on it, and that brought back part of the beat between the mask and the screen's pixels
+        // that the points average out (moire, about 1.6 times as strong as in HDR; trinitron at
+        // 1080p, 2.84 pixels per triad, bars over the whole screen). docs/sources/mask-moire.md
+        vec3 beam = col;
+        col = vec3(0.0);
+        for (int i = 0; i < nm; i++)
+        {
+            vec3 p = beam * mf[i];
+            p *= damper;
+            p *= vWhite;
+            p = mix(p, glow, gw);
+            if (phos) p = pm3 * p;
+            p = shoulder(p);
+            col += p;
+        }
+        col /= float(nm);
         float r2 = clamp(dot(c, c) * 0.5, 0.0, 1.0);
         col *= 1.0 - LR_VIGNETTE * pow(r2, 1.6);
         col += 0.01 * LR_REFLECT * LR_ROOM * vec3(0.80, 0.92, 0.87);   // Room reflection in %

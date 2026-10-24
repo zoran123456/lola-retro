@@ -18,6 +18,7 @@ and marks what was worked out (inferred) rather than read.
 | [x68000-monitors.md](x68000-monitors.md) | the X68000 monitor model: the monitors |
 | [lite-presets.md](lite-presets.md) | the `lite/` and `super-lite/` presets (issue #12): what each pass costs, what was left out, speeds users reported |
 | [internal-resolution.md](internal-resolution.md) | upscaled frames (`upscaleOf`, the native pass), issue #14 |
-| [dither-blend.md](dither-blend.md) | which Dither blend (`LR_DBLEND`) matches composite (README) |
+| [dither-blend.md](dither-blend.md) | which Dither blend (`LR_DBLEND`) matches composite (README); Dither blend auto (`ditherBlend`, `palByRate`) |
+| [mask-moire.md](mask-moire.md) | the mask at the tube's size on 1080p: moiré, and the shoulder per mask point (`maskPoints`, the CRT pass) |
 | [composite-luma-bandwidth.md](composite-luma-bandwidth.md) | composite luma at 5-6 MHz: the consoles' encoder networks, TV decoders, the IF filter of RF and the TV show (`IF_NTSC`, `IF_PAL`), Luma trap in the console 0 for the NES and SNES |
 | [windows-test.md](windows-test.md) | the presets on Windows (D3D11, D3D12, Vulkan, glcore), an Intel laptop: pictures, loading times, speed |
