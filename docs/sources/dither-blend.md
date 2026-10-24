@@ -82,28 +82,26 @@ switched to composite:
 
 | Case | RGB, no blend | Auto | Composite |
 |---|---|---|---|
-| 256x224 NTSC, luma / colour | 0.298 / 0.382 | 0.158 / 0.000 | 0.159 / 0.000 |
-| 320x224 NTSC, luma | 0.279 | 0.0142 | 0.0145 |
-| 256x224 at 50.007 Hz, luma | 0.298 | 0.288 | 0.294 (TV standard PAL) |
-| 256x224 S-Video (Trinitron), luma | 0.359 | 0.163 | 0.154 |
-| 320x224 Amiga timing, luma | 0.279 | 0.0060 | 0.0063 |
+| 256x224 NTSC, luma / colour | 0.314 / 0.403 | 0.166 / 0.000 | 0.169 / 0.000 |
+| 320x224 NTSC, luma | 0.304 | 0.0155 | 0.0167 |
+| 512x224 NTSC, luma | 0.263 | 0.183 | 0.185 |
+| 640x224 NTSC, luma | 0.234 | 0.120 | 0.131 |
+| 256x224 at 50.007 Hz, luma | 0.314 | 0.307 | 0.311 |
+| 256x224 S-Video (Trinitron), luma | | 0.163 | 0.163 |
+| 320x224 Amiga timing, luma | 0.300 | 0.0065 | 0.0070 |
+| 256x224 lite / super lite, luma | | 0.166 / 0.164 | 0.169 / 0.167 |
 
-Dither blend 0.47 by hand on the 256-wide frame leaves 0.202 of the colour. Arcade timing with auto renders the
-same as without. Without `_HAS_FRAMETIME_UNIFORMS`, at 60.099 Hz, and at 50 Hz with TV standard NTSC by hand the
-256x224 frame stays NTSC (0.158).
+(Measured again after the RGB amplifier and the console trap were made to follow their filters, see
+composite-luma-bandwidth.md; the first measurements had S-Video 6% above composite, super lite's composite 17%
+above the full chain's, and 512 and 640 wide off by 20% and more, all from those two.) Dither blend 0.47 by hand
+on the 256-wide frame leaves 0.213 of the colour. Arcade timing with auto renders the same as without. Without
+`_HAS_FRAMETIME_UNIFORMS`, at 60.099 Hz, and at 50 Hz with TV standard NTSC by hand the 256x224 frame stays NTSC.
 
 Not right yet:
 
-- S-Video comes out 6% above composite (0.163 against 0.154): the shares come from the continuous filters, and
-  the passes' taps do not follow them exactly. Not traced further.
-- The lite presets match (0.158 against 0.159). Super lite's composite takes out less than the full chain's
-  (0.186 against 0.159 on the 256-wide frame: its decoder works out every other sample); auto follows the full
-  model there too (0.157).
-- 512 and 640 wide: the passes stray from their own filters for 1-pixel stripes (6.7 MHz at 640). Composite
-  passes +14% (512) and +37% (640) more than its filters, +6% and +16% with the console trap off (its taps are
-  0.25 sigma apart in time, 0.89 px at 13.4 MHz, and skip 1-pixel detail); the RGB amplifier passes -9% and -34%
-  (its 7 taps read the nearest pixel, 0.27 px apart at 640 wide, instead of integrating the pixels). Up to 448
-  wide all agree within a few percent. Auto follows the filters, so in those modes it does not match the
-  composite presets. Whether composite's luma filter is right above 4 MHz at all (Kirby's Dream Land 3's 512-wide
-  transparency is remembered as blended) is a separate question for the composite model.
+- 640 wide: composite passes about 10% more of a 1-pixel stripe than its filters give, so auto takes out a little
+  more than the composite preset (0.120 against 0.131). The encoder has 1280 samples per line, 2 per pixel at
+  640 wide, and the stripe's third harmonic folds back onto the stripe; more samples would cost every preset.
+- Whether composite's luma filter is right above 4 MHz at all (Kirby's Dream Land 3's 512-wide transparency is
+  remembered as blended): composite-luma-bandwidth.md, where the datasheets say it is.
 - Patterns wider than one pixel, and composite's rainbow, are not part of it.

@@ -37,19 +37,42 @@ Gain at a 1-pixel stripe's frequency (half the pixel clock), from these filters 
 
 PAL, 512 wide (5.32 MHz): composite 0.19, RGB 0.79. The 4.43 MHz trap is closer and its Gaussian is wide.
 
-The rendered shader does not quite follow these filters at hi-res widths. The session working on the automatic
-Dither blend measured this with a ctypes render of the real chain: grey 1-pixel stripes 64/191, 224 lines, the
-fundamental at the decoder output. It was not re-checked here. Against the filters above:
-- composite: +0.7% at 256 wide, +8% at 448, +14% at 512 (+6% with the console trap 0), +37% at 640 (+16%);
-- RGB: -0.3%, +4%, -9%, -34%.
+The rendered shader did not quite follow these filters. Measured with a ctypes render of the real chain (grey
+1-pixel stripes 64/191, 224 lines, the fundamental at the decoder output, the TV's Contrast 1.05 included), against
+the filters above, before and after the fix of 2026-10-24:
 
-The likely causes:
-- the console trap's taps are 0.25 sigma apart (0.71 px at 512 wide, 0.89 px at 640), so they skip 1-pixel
-  detail;
-- the RGB amplifier reads the nearest pixel at each tap instead of integrating the pixel steps;
-- the encoder has only 2 samples per pixel at 640 wide.
+| Width | Composite before | after | Console trap 0 | RGB before | after |
+|---|---|---|---|---|---|
+| 256 | -4.1% | +1.6% | +1.3% | -5.1% | +0.1% |
+| 320 | -5.7% | +8.6% | -20.3% | -8.0% | +0.2% |
+| 448 | +2.7% | +1.6% | +1.3% | -0.7% | +0.7% |
+| 512 | +9.0% | +1.2% | +1.3% | -13.7% | 0.0% |
+| 640 | +30.7% | +10.5% | +10.5% | -37.3% | +1.7% |
 
-Up to 448 wide everything agrees within a few percent.
+(320 wide sits in the decoder's trap, so what is left there is small and its share swings.) The causes and fixes:
+
+- The RGB amplifier (`decode.inc`) read the nearest pixel at 7 taps a sigma apart (0.22 px at 512 wide, 0.27 at
+  640) and so the pixels' edges. Now each pixel's share is the Gaussian's integral over it (`gaussCdf`).
+- The console trap (`encode.inc`) sampled the luma at 25 taps, 0.25 sigma apart in time (0.36 px at 256 wide, 0.89
+  at 640), again reading the steps' edges: in a Python model of the trap alone against the continuous integral,
+  -5.8% at 256, -13% at 320, +7.6% at 512, +18% at 640. Super lite read each pixel once with a sinc for the
+  subcarrier, which is not enough either (+11% at 256: the subcarrier turns 240 degrees across a pixel and the
+  window changes across it), and grouped 2 pixels at 640. Now both read each console pixel once and integrate the
+  window times the subcarrier over it with 3 Gauss-Legendre points (within 0.3% of the continuous integral at
+  every width), the weights and the subcarrier carried from point to point without exp, sin or cos. Super lite's
+  composite now matches the full chain's (0.167 against 0.169 on 256-wide stripes; 0.186 before).
+- Not fixed: the encoder has 1280 samples per line, 2 per pixel at 640 wide, and the stripe's third harmonic
+  folds back onto it (+10.5%, the same with the trap off). More samples would cost every preset.
+
+On real frames at 256 and 320 wide (test-images: waterfall 320x224, platformer 256x224, 1440x1080) the picture
+changes by 0.1-0.3/255 on average, at most 11-17/255 on 0.2-1.8% of the values (sharp edges), on composite and RGB;
+lite about the same, super lite a little more (0.16-0.47/255 on average, at most 22/255 on up to 5.8% of the values
+on RGB). S-Video, the PC monitors, the X68000 monitor and the NES and SNES presets (no console trap) are unchanged. The PC monitor table is unchanged (1-pixel stripes 94.1 / 47.1 / 27.2 / 10.4% at 4K before
+and after: the beam spot decides there, not the 85 MHz amplifier). Cost: +0.03 ms a frame on full, +0.05 ms on
+super lite (1440x1080, M4 Pro). RetroArch 1.22.2 (image viewer, consumer-tv-composite and consumer-tv-scart-rgb):
+Metal and glcore give the same picture (within 1/255); Vulkan too on RGB, while on composite its screenshot differed
+in a band at the top (rows 0-260 here, 0-88 in a run before this change), with the same look: the screenshot
+catching part of another frame, not taken as a difference of the passes.
 
 ## Consoles: the encoder's luma path (composite only; S-Video Y and RGB bypass it)
 

@@ -124,55 +124,52 @@ vec3 encYUV(float n, float y, float fs, Timing T, float trap, float blend, bool 
 #endif
     uv /= ws;
 
-#ifdef LR_SUPER_LITE
     if (trap > 0.0)
     {
-        // the same narrow band, one read per pixel (or group): a flat step of st pixels passes the
-        // subcarrier scaled by sinc(phase across it / 2)
+        // demodulate the luma at the subcarrier over a long window (narrow band), then put that
+        // band back at this sample and subtract it. The console's pixels are flat steps, each read
+        // once, its share the window times the subcarrier integrated over the step (3 Gauss-Legendre
+        // points: the subcarrier turns up to 240 degrees across a pixel, and the window changes too).
+        // A step is one console pixel (k frame pixels in a frame upscaled k times, which repeats them).
+        // Taps at fixed time steps (0.25 sigma) read the nearest pixel and so the steps' edges: 1-pixel
+        // stripes came out 6% (256 wide) and 13% (320) weaker than the trap's filter gives and 8%
+        // (512) and 18% (640) stronger; one point per pixel with a sinc, 11% stronger at 256
+        // (docs/sources/composite-luma-bandwidth.md). Within 0.3% of the filter now.
         float sigT = 0.1325 / 0.5;
         float sp = sigT * T.pclk;                          // sigma in frame pixels
-        float st = max(1.0, floor(sp / 1.5));
+        float st = T.scale;
         float wpx = TAU * T.fsc / T.pclk;                  // subcarrier phase per frame pixel
-        float box = sin(0.5 * wpx * st) / (0.5 * wpx * st);
+        float gt = 0.38729833 * st;                        // the outer points, sqrt(3/5) / 2 of a step out
         float j0 = floor((xs - 3.0 * sp) / st) * st, j1 = xs + 3.0 * sp;
+        float o = j0 + 0.5 * st - xs;                      // the first step's centre from this sample
+        float is2 = 1.0 / (sp * sp);
+        // the window and the subcarrier at a step's centre, carried to the next step and to the
+        // outer points by factors, so no exp, sin or cos per point
+        float g = exp(-0.5 * o * o * is2);                 // window at the centre
+        float gq = exp(-(o * st + 0.5 * st * st) * is2);   // g at the next centre / g
+        float gqq = exp(-st * st * is2);                   // how gq changes per step
+        float e = exp(-o * gt * is2);                      // outer points: g * eg * e and g * eg / e
+        float eq = exp(-st * gt * is2);
+        float eg = 0.625 * exp(-0.5 * gt * gt * is2);      // with their weight, 5/8 of the centre's
+        vec2 c = vec2(cos(ph + wpx * o), sin(ph + wpx * o));
+        vec2 cs = vec2(cos(wpx * st), sin(wpx * st)), cg = vec2(cos(wpx * gt), sin(wpx * gt));
         vec2 yb = vec2(0.0);
         float wt = 0.0;
-        for (int k = 0; k < 16; k++)
+        for (int k = 0; k < 48; k++)
         {
             float j = j0 + float(k) * st;
             if (j > j1) break;
-            float o = j + 0.5 * st - xs;                   // the step's centre from this sample
-            float w = exp(-0.5 * o * o / (sp * sp));
-            float a = ph + wpx * o;
             float yy = dot(srcPix(j + 0.5 * st, y, T.scale), vec3(0.299, 0.587, 0.114));
-            yb += w * yy * vec2(sin(a), cos(a));
-            wt += w;
-        }
-        Y -= trap * 2.0 * box * (yb.x * sin(ph) + yb.y * cos(ph)) / wt;
-    }
-#else
-    if (trap > 0.0)
-    {
-        // demodulate the luma at the subcarrier over a long window (narrow band),
-        // then put that band back at this sample and subtract it
-        float sigT = 0.1325 / 0.5;
-        float da = TAU * T.fsc * 0.25 * sigT;    // subcarrier phase step between taps
-        vec2 rp = vec2(cos(da), sin(da));
-        vec2 e = vec2(cos(ph - 12.0 * da), sin(ph - 12.0 * da));
-        vec2 yb = vec2(0.0);
-        float wt = 0.0;
-        for (int k = -12; k <= 12; k++)
-        {
-            float u = float(k) * 0.25;           // in sigmas, covers +-3
-            float w = exp(-0.5 * u * u);
-            float yy = dot(srcPix(xs + u * sigT * T.pclk, y, T.scale), vec3(0.299, 0.587, 0.114));
-            yb += w * yy * e.yx;
-            wt += w;
-            e = vec2(e.x * rp.x - e.y * rp.y, e.y * rp.x + e.x * rp.y);
+            float gp = g * eg * e, gm = g * eg / e;
+            vec2 sum = g * c + gp * vec2(c.x * cg.x - c.y * cg.y, c.y * cg.x + c.x * cg.y)
+                             + gm * vec2(c.x * cg.x + c.y * cg.y, c.y * cg.x - c.x * cg.y);
+            yb += yy * sum.yx;                             // (sin, cos) of the subcarrier, weighted
+            wt += g + gp + gm;
+            g *= gq; gq *= gqq; e *= eq;
+            c = vec2(c.x * cs.x - c.y * cs.y, c.y * cs.x + c.x * cs.y);
         }
         Y -= trap * 2.0 * (yb.x * sin(ph) + yb.y * cos(ph)) / wt;
     }
-#endif
 
     return vec3(Y, uv);
 }

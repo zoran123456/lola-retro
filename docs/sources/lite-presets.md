@@ -117,7 +117,7 @@ shoulder 0.01, the rest (geometry, setup, writing the screen) 0.07; 0.34 in all.
 | Change on top of lite | Saves (ms, 1440x1080) | Picture | In super lite |
 |---|---|---|---|
 | no native pass (upscaled frames read one row per line) | 0.03-0.04 | the same at 1x | yes |
-| encoder: chroma filter integrated over the pixel steps (each pixel read once, 3-8 reads instead of 17), luma trap one read per pixel with the pixel's sinc instead of 25 taps | 0.03-0.05 | 44 dB at 1280 samples | yes |
+| encoder: chroma filter integrated over the pixel steps (each pixel read once, 3-8 reads instead of 17), luma trap one read per pixel with the pixel's sinc instead of 25 taps (since 2026-10-24 the full chain does the same, with 3 Gauss-Legendre points per pixel instead of the sinc: composite-luma-bandwidth.md) | 0.03-0.05 | 44 dB at 1280 samples | yes |
 | decoder works out every other sample (taps still on every sample) | 0.17 | 41-50 dB on composite, 43 dB on RGB | yes, not on the 1084S |
 | beam pass taps 2 dark-spot widths apart | 0.04 | dark detail up to 1.5% brighter | yes |
 | beam pass one sample per screen pixel on the tubes in mm too | 0.1-0.4 (hires) | 47-51 dB | yes |

@@ -114,14 +114,21 @@ void main()
             }
         }
 
+        // the amplifier's Gaussian over the frame's pixels, which are flat steps: each pixel's share
+        // is the Gaussian's integral over it. Taps a sigma apart read the nearest pixel instead, and at
+        // 512 and 640 wide (sigma 0.22 and 0.27 pixels) they stepped over 1-pixel detail: such stripes
+        // came out up to a third weaker than 6.5 MHz passes (docs/sources/composite-luma-bandwidth.md)
+        float pa = floor(xs - 3.0 * sigPx), pb = floor(xs + 3.0 * sigPx);
         vec3 acc = vec3(0.0);
         float ws = 0.0;
-        for (int k = -3; k <= 3; k++)
+        for (int k = 0; k < 16; k++)
         {
-            float w = exp(-0.5 * float(k * k));
-            float xt = xs + float(k) * sigPx;
-            vec3 v = origPix(xt, y, T.scale);
-            if (blend) v -= alt[clamp(int(floor(xt / sp) - j0) + 2, 0, 4)];
+            float j = pa + float(k);
+            if (j > pb) break;
+            vec3 z = gaussCdf(vec3(j - xs, j + 1.0 - xs, 0.0) / sigPx);
+            float w = z.y - z.x;
+            vec3 v = origPix(j + 0.5, y, T.scale);
+            if (blend) v -= alt[clamp(int(floor((j + 0.5) / sp) - j0) + 2, 0, 4)];
             acc += w * v;
             ws += w;
         }
