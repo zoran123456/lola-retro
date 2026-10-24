@@ -11,6 +11,9 @@ layout(push_constant) uniform Push
     vec4 OriginalSize;
     vec4 OutputSize;
     uint FrameCount;
+#ifdef _HAS_FRAMETIME_UNIFORMS
+    float OriginalFPS;      // the core's frame rate, from newer RetroArch (see palByRate)
+#endif
 } params;
 
 #pragma parameter LR_HDR_SRC "--- Source ---" 0.0 0.0 0.0 1.0
@@ -22,6 +25,7 @@ layout(push_constant) uniform Push
 #pragma parameter LR_COMB "Comb filter (NTSC composite only)" 0.0 0.0 1.0 1.0
 #pragma parameter LR_YTRAP "Luma trap in the console (less rainbow)" 0.0 0.0 1.0 0.05
 #pragma parameter LR_DBLEND "Dither blend on RGB and S-Video (modern, off on real TVs)" 0.0 0.0 1.0 0.05
+#pragma parameter LR_DBLEND_AUTO "Dither blend auto: as composite would (0 off, 1 on)" 0.0 0.0 1.0 1.0
 #pragma parameter LR_SHARP "Sharpness" 0.35 0.0 1.0 0.01
 #pragma parameter LR_SAT "Colour" 1.25 0.0 2.0 0.01
 #pragma parameter LR_TINT "Tint (NTSC, degrees)" 0.0 -30.0 30.0 1.0
@@ -88,6 +92,7 @@ layout(std140, set = 0, binding = 0) uniform UBO
     float LR_COMB;
     float LR_YTRAP;
     float LR_DBLEND;
+    float LR_DBLEND_AUTO;
     float LR_SHARP;
     float LR_SAT;
     float LR_TINT;
@@ -155,7 +160,8 @@ const float TAU = 6.28318530718;
 // The blend finds the part of the picture that alternates from one console pixel to
 // the next (a Gaussian window of 1.25 pixels with alternating signs, a narrow notch at
 // half the pixel clock) and takes it out. Flat areas, gradients and wider detail are
-// left alone. Weights for offsets 0..4 and the normalisation 4 * (w1 + w3):
+// left alone. How much: Dither blend, or with Dither blend auto what composite would take
+// (ditherBlend, below getTiming). Weights for offsets 0..4 and the normalisation 4 * (w1 + w3):
 const float DBW[5] = float[5](1.0, 0.726149, 0.278037, 0.056135, 0.005976);
 const float DBN = 3.129136;
 float dbSign(int k) { return (abs(k) & 1) == 1 ? -1.0 : 1.0; }
@@ -435,6 +441,60 @@ Timing getTiming(vec2 orig, uint frameCount)
     t.vsw = mod(fc * c, 2.0);
     t.vswStep = c;
     return t;
+}
+
+// The gain of a Gaussian low-pass with -3 dB at fc (MHz) at frequency f (MHz), the filters of the
+// encoder and decoder: exp(-2 pi^2 (0.1325 / fc)^2 f^2)
+float gaussGain(float f, float fc)
+{
+    float s = 0.1325 / fc;
+    return exp(-19.7392 * s * s * f * f);
+}
+
+// PAL or NTSC for Dither blend auto: TV standard when it is set by hand; otherwise the core's frame
+// rate where RetroArch passes it (50 Hz systems run at 49.7 to 50.01 frames a second, 60 Hz ones at
+// 59 to 60.1); otherwise getTiming's guess from the line count, which takes a PAL game with 224 or
+// 240 lines (most PAL SNES games, the Mega Drive in its 224-line mode) for NTSC.
+bool palByRate(Timing t)
+{
+    if (global.LR_NORM > 0.5) return global.LR_NORM > 1.5;
+#ifdef _HAS_FRAMETIME_UNIFORMS
+    if (params.OriginalFPS > 1.0) return params.OriginalFPS < 52.0;
+#endif
+    return t.pal > 0.5;
+}
+
+// How much Dither blend takes out of a 1-pixel pattern (the part that alternates from one console
+// pixel to the next, at half the pixel clock): x of its luma, y of its colour. Dither blend sets both.
+// Dither blend auto takes what composite would have taken (docs/sources/dither-blend.md): the luma
+// share from the filters of the composite path at that frequency, the console's luma trap
+// (encode.inc) and the TV's luma filter with Sharpness and its trap or comb filter (decode.inc),
+// against the path in use (cable 3 RGB: the video amplifier; 2 S-Video: its luma filter), so the
+// pattern keeps the contrast it would have had on composite. Composite took all of its colour (the
+// chroma band is 0.6 to 0.8 MHz wide, the pattern 2.5 MHz or more), so the colour share is 1; S-Video's
+// own chroma filters already take it. Auto works on 15 kHz TV timings, the consoles and the Amiga,
+// which reached most players through composite; arcade boards (RGB monitors) and computer monitors
+// keep Dither blend as set. It follows the mode (a Mega Drive game switching between 256 and 320
+// pixels), the TV standard (palByRate) and the composite settings, and only knows 1-pixel patterns.
+vec2 ditherBlend(Timing t, float cable)
+{
+    float d = global.LR_DBLEND;
+    bool tv = t.scan < 0.5 && t.monitor < 0.5 && !(t.id > 7.5 && t.id < 8.5);
+    if (global.LR_DBLEND_AUTO < 0.5 || !tv) return vec2(d);
+    bool pal = palByRate(t);
+    float fsc = pal ? 4.433619 : 3.579545;
+    float f = 0.5 * t.pclk / t.scale;                 // the pattern's frequency (MHz)
+    float sh = global.LR_SHARP * 1.4;
+    // composite as decode.inc decodes it: the comb filter (NTSC, lines half a cycle apart) or the trap
+    bool comb = global.LR_COMB > 0.5 && !pal && abs(t.lineFrac - 0.5) < 0.05;
+    float fcY = (comb || pal) ? 4.2 : 3.3, fcC = pal ? 0.8 : 0.6;
+    float yf = (1.0 + sh) * gaussGain(f, fcY) - sh * gaussGain(f, fcY / 2.5);
+    float hf = (1.0 + sh) * gaussGain(fsc, fcY) - sh * gaussGain(fsc, fcY / 2.5);
+    float notch = comb ? 0.0 : 0.92 * hf * (gaussGain(f - fsc, fcC) + gaussGain(f + fsc, fcC));
+    float comp = (1.0 - global.LR_YTRAP * (gaussGain(f - fsc, 0.5) + gaussGain(f + fsc, 0.5))) * (yf - notch);
+    float fcS = pal ? 5.0 : 4.6;
+    float own = cable > 2.5 ? gaussGain(f, 6.5) : (1.0 + sh) * gaussGain(f, fcS) - sh * gaussGain(f, fcS / 2.5);
+    return vec2(clamp(1.0 - comp / own, 0.0, 1.0), 1.0);
 }
 
 // Frame pixels and rows per console pixel and line, for effects sized on the glass (glow,

@@ -256,7 +256,9 @@ void main()
 
     // S-Video keeps luma apart, no trap needed; on a TV show the console's encoder is not used
     float trap = (cable < 1.5 && !show) ? global.LR_YTRAP : 0.0;
-    float blend = (cable > 1.5 && !show) ? global.LR_DBLEND : 0.0; // composite and RF blend dither by themselves
+    // composite and RF blend dither by themselves; on S-Video (RGB is not encoded) Dither blend takes
+    // luma's share, its chroma filters take the colour (ditherBlend)
+    float blend = (cable > 1.5 && !show) ? ditherBlend(T, cable).x : 0.0;
     vec3 a = encYUV(n, y, fs, T, trap, blend, show);
 
     // No flicker: the signal of up to three frames of the subcarrier cycle, one per channel

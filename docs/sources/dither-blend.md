@@ -2,7 +2,8 @@
 
 Worked out 2026-10-22 for a question on the libretro forum (Lola Retro thread): which Dither blend
 (`LR_DBLEND`) on the RGB preset matches the composite preset. Used in the README (Optional: dither blend on
-RGB) and in the Parameters table of `shaders/lola-retro/README.md`. No code changed.
+RGB) and in the Parameters table of `shaders/lola-retro/README.md`. Since 2026-10-24 the shader works the
+same sums out itself for Dither blend auto (`LR_DBLEND_AUTO`, see the last section).
 
 ## What the two do
 
@@ -44,3 +45,65 @@ not change from line to line).
 
 This is what the shader's composite does, not a measurement of a real TV. The beam and the mask act on
 both pictures alike, so they are left out.
+
+## Dither blend auto (2026-10-24)
+
+Asked for on the forum (Arviel, JHorbach1): Dither blend set by itself, per system. Dither blend is a
+compromise (no TV blended dither on RGB), so it stays a separate parameter, off by default; auto only takes its
+amount from the shader's composite model instead of a number the user picks.
+
+What it does (`ditherBlend` in `common.inc`, used by `decode.inc` for RGB and `encode.inc` for S-Video):
+
+- Luma share: `1 - composite / path in use` at the pattern's frequency, the sums above, from the preset's own
+  Luma trap in the console, Sharpness and Comb filter. The path in use: RGB `G(f, 6.5)`, S-Video its luma filter.
+- Colour share 1. Composite's chroma band (0.6 MHz NTSC, 0.8 PAL) takes all of a 1-pixel pattern's colour (the
+  pattern is at 2.5 MHz or more). On S-Video the encoder's 1.5 MHz and the decoder's 0.9 MHz chroma filters
+  already leave about 1.5% of it, so auto only touches luma there. Dither blend by hand takes the same share of
+  luma and colour, as before.
+- Only on 15 kHz TV rasters (scan mode 0): the consoles and the Amiga, most of whose players used composite or
+  RF. Not on arcade boards (Console timing 8: RGB monitors, never composite) or computer monitors (VGA, 24 kHz,
+  X68000, Frames over 300 lines 2); there Dither blend stays as set.
+- Pattern frequency: half of `t.pclk / t.scale`. For every TV timing the nominal width spans the same active
+  line (about 47.7 us), so `t.pclk` is about 0.021 MHz per frame pixel whichever console the shader guesses
+  (SNES, Mega Drive, PlayStation, arcade rows 0.02097; PlayStation 2 0.02109). A wrong console guess changes the
+  subcarrier rhythm, not this. Cores that crop or add borders do change it, as they change composite:
+  NES cropped to 240 px reads 5.03 MHz (NTSC share 0.30 instead of 0.47), H32 with borders (284 px) 5.96 MHz
+  (0.75), H40 with borders (348 px) 7.30 MHz (0.98 instead of 0.95; PAL 0.69 instead of 0.44).
+- PAL or NTSC (`palByRate`): TV standard when it is set; otherwise `OriginalFPS`, the core's frame rate, when
+  RetroArch defines `_HAS_FRAMETIME_UNIFORMS` (RetroArch 1.22.2 has both; its slang README documents them),
+  under 52 Hz is PAL; otherwise getTiming's line count, which reads PAL games with 224 or 240 lines as NTSC
+  (NTSC share 0.47 instead of 0.03 for 256-wide). 50 Hz consoles run at about 49.7 to 50.01 frames a second and
+  60 Hz ones at 59 to 60.1; the per-core values are to be measured (a separate note on frame-rate detection).
+  The ports (Amiberry, 86Box) have no such uniform and keep the line count.
+
+Checked with a ctypes render of the whole chain on Apple's OpenGL (decoder output; amplitude of the stripes'
+fundamental; grey stripes 64/191 for luma, two colours of about equal luma for colour), against the same TV
+switched to composite:
+
+| Case | RGB, no blend | Auto | Composite |
+|---|---|---|---|
+| 256x224 NTSC, luma / colour | 0.298 / 0.382 | 0.158 / 0.000 | 0.159 / 0.000 |
+| 320x224 NTSC, luma | 0.279 | 0.0142 | 0.0145 |
+| 256x224 at 50.007 Hz, luma | 0.298 | 0.288 | 0.294 (TV standard PAL) |
+| 256x224 S-Video (Trinitron), luma | 0.359 | 0.163 | 0.154 |
+| 320x224 Amiga timing, luma | 0.279 | 0.0060 | 0.0063 |
+
+Dither blend 0.47 by hand on the 256-wide frame leaves 0.202 of the colour. Arcade timing with auto renders the
+same as without. Without `_HAS_FRAMETIME_UNIFORMS`, at 60.099 Hz, and at 50 Hz with TV standard NTSC by hand the
+256x224 frame stays NTSC (0.158).
+
+Not right yet:
+
+- S-Video comes out 6% above composite (0.163 against 0.154): the shares come from the continuous filters, and
+  the passes' taps do not follow them exactly. Not traced further.
+- The lite presets match (0.158 against 0.159). Super lite's composite takes out less than the full chain's
+  (0.186 against 0.159 on the 256-wide frame: its decoder works out every other sample); auto follows the full
+  model there too (0.157).
+- 512 and 640 wide: the passes stray from their own filters for 1-pixel stripes (6.7 MHz at 640). Composite
+  passes +14% (512) and +37% (640) more than its filters, +6% and +16% with the console trap off (its taps are
+  0.25 sigma apart in time, 0.89 px at 13.4 MHz, and skip 1-pixel detail); the RGB amplifier passes -9% and -34%
+  (its 7 taps read the nearest pixel, 0.27 px apart at 640 wide, instead of integrating the pixels). Up to 448
+  wide all agree within a few percent. Auto follows the filters, so in those modes it does not match the
+  composite presets. Whether composite's luma filter is right above 4 MHz at all (Kirby's Dream Land 3's 512-wide
+  transparency is remembered as blended) is a separate question for the composite model.
+- Patterns wider than one pixel, and composite's rainbow, are not part of it.

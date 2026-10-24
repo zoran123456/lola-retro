@@ -78,13 +78,15 @@ void main()
         float sigPx = 0.1325 / (isPC(T.scan) ? 85.0 : 6.5) * T.pclk;
 
         // dither blend: the 1-pixel alternating part around the five console pixels
-        // the amplifier taps can reach, taken out of every tap below
-        float db = global.LR_DBLEND;
+        // the amplifier taps can reach, taken out of every tap below: db.x of its luma,
+        // db.y of the rest, its colour (the same share with Dither blend, see ditherBlend)
+        vec2 db = ditherBlend(T, cable);
+        bool blend = db.x > 0.0 || db.y > 0.0;
         float sp = T.scale;
         float j0 = floor(xs / sp);
         vec3 alt[5];
         for (int i = 0; i < 5; i++) alt[i] = vec3(0.0);
-        if (db > 0.0)
+        if (blend)
         {
             vec3 p[13];
             for (int i = 0; i < 13; i++) p[i] = origPix((j0 + float(i - 6) + 0.5) * sp, y, T.scale);
@@ -92,7 +94,8 @@ void main()
             {
                 vec3 a = vec3(0.0);
                 for (int k = -4; k <= 4; k++) a += DBW[abs(k)] * dbSign(k) * (p[i + 4 + k] - p[i + 4]);
-                alt[i] = db * a / DBN;
+                float aY = dot(a, vec3(0.299, 0.587, 0.114));
+                alt[i] = (db.x * aY + db.y * (a - aY)) / DBN;
             }
         }
 
@@ -103,7 +106,7 @@ void main()
             float w = exp(-0.5 * float(k * k));
             float xt = xs + float(k) * sigPx;
             vec3 v = origPix(xt, y, T.scale);
-            if (db > 0.0) v -= alt[clamp(int(floor(xt / sp) - j0) + 2, 0, 4)];
+            if (blend) v -= alt[clamp(int(floor(xt / sp) - j0) + 2, 0, 4)];
             acc += w * v;
             ws += w;
         }
