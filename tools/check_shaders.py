@@ -7,7 +7,9 @@ The .glsl files (tools/make_glsl.py) are compiled the way their emulator does, o
 "#define VERTEX" and once with "#define FRAGMENT":
 - Amiberry puts the defines right after the #version line;
 - 86Box keeps "#version" and the word after it, removes the #pragma parameter lines and any
-  "#define texture..." line, and puts an #extension line, the defines and "#line 1" in front.
+  "#define texture..." line, and puts an #extension line, the defines and "#line 1" in front;
+- Kodi removes the #pragma parameter lines that start a line and puts the version and the defines in
+  front, once as OpenGL's 330 and once as OpenGL ES's 310 es (Kodi's version for 330 on GLES).
 The Unity passes (tools/make_unity.py) are HLSL: glslang's HLSL front end compiles each one's
 vertex and fragment function (LRVert, LRFrag) the way the ShaderLab pass names them. Their GLSL
 ES 3.00 versions (Unity's OpenGL ES and WebGL SubShader) are compiled as Unity compiles them.
@@ -25,6 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SHADERS = ROOT / "shaders" / "lola-retro" / "shaders"
 AMIBERRY = sorted((ROOT / "amiberry").glob("**/*.glsl"))
 BOX86 = sorted((ROOT / "86box").glob("**/*.glsl"))
+KODI = sorted((ROOT / "kodi").glob("**/*.glsl"))
 UNITY = ROOT / "unity" / "lola-retro" / "Shaders"
 
 
@@ -92,6 +95,13 @@ def box86_source(src, define):
             + f"#define {define}\n#define PARAMETER_UNIFORM\n" + "\n#line 1\n" + src)
 
 
+def kodi_source(src, define, version):
+    """As Kodi's CShaderGL and CShaderGLES assemble it (CShaderUtils::StripParameterPragmas, GetGLSLVersion)."""
+    src = re.sub(r"^#pragma parameter.*$", "", src, flags=re.M)
+    src = re.sub(r"^\s*#version\s+\w+.*$", "", src, count=1, flags=re.M)
+    return f"#version {version}\n#define {define}\n#define PARAMETER_UNIFORM\n" + src
+
+
 def compile_unity(path, define, stage, entry, short):
     """One stage of a Unity pass (with the #define its ShaderLab pass sets), its includes found
     next to it as Unity finds them."""
@@ -114,6 +124,11 @@ def main():
             src = glsl.read_text()
             for stage, define in (("vertex", "VERTEX"), ("fragment", "FRAGMENT")):
                 ok &= compile_stage(f"{label}/{glsl.stem}", stage, assemble(src, define), [])
+    for glsl in KODI:
+        src = glsl.read_text()
+        for version in ("330", "310 es"):
+            for stage, define in (("vertex", "VERTEX"), ("fragment", "FRAGMENT")):
+                ok &= compile_stage(f"kodi/{glsl.stem} {version}", stage, kodi_source(src, define, version), [])
     unity = [(UNITY / "lola-retro-source.hlsl", None), (UNITY / "lola-retro-source.hlsl", "LR_INPUT_ARRAY"),
              (UNITY / "lola-retro-output-hdr.hlsl", None)] + [(f, None) for f in sorted((UNITY / "Passes").glob("*.hlsl"))]
     for pass_file, define in unity:

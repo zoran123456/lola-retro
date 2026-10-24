@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Convert the Lola Retro slang passes to GLSL for emulators with RetroArch-style .glslp presets.
 
-Two targets, each one preset:
+Three targets:
 - Amiberry (Amiga 1084S): amiberry/lola-retro
 - 86Box (PC monitor, VGA): 86box/lola-retro
-Every preset also comes in a flat version (NAME-flat.glslp), as in RetroArch's flat folder.
+- Kodi (every preset): kodi/lola-retro, described at the end of this text
+Every preset also comes in a flat version, as in RetroArch's flat folder (NAME-flat.glslp for
+Amiberry and 86Box, curved/ and flat/ folders for Kodi).
 
-Both run the passes on OpenGL core profiles (Amiberry 3.3, 86Box 3.2 or newer). The conversion:
+Amiberry and 86Box run the passes on OpenGL core profiles (Amiberry 3.3, 86Box 3.2 or newer).
+The conversion:
 - inlines the includes and turns each pass into one file with a VERTEX and a FRAGMENT part;
 - replaces the Vulkan uniform blocks with the plain uniforms the emulator sets;
 - builds in the preset's values: the ones worth adjusting stay parameters, the rest become
@@ -34,6 +37,14 @@ Amiberry - every pass's output is sized exactly, and passes are found by their a
 Neither has feedback textures (LR_NO_FEEDBACK, no afterglow), and neither keeps the picture
 area 4:3 (LR_FIT_43). The options are described in crt.inc.
 
+Kodi runs RetroArch's own presets: its textures are the exact size of each picture, rows count
+from the top, wrap modes and filters mean what they mean in RetroArch, and every pass gets every
+parameter of the preset by name. So the Kodi version keeps RetroArch's pass chains (with the
+native pass) and every parameter, shares its passes between all the presets, and only renames the
+textures: the previous pass is Texture, the frame OrigTexture and an aliased pass <alias>Texture
+(Texture again when it is the previous pass). It has no feedback textures either (LR_NO_FEEDBACK).
+Kodi turns the version line into OpenGL ES's on GLES devices, so the passes set default precisions.
+
 Usage: python3 tools/make_glsl.py
 """
 import re
@@ -43,7 +54,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SLANG = ROOT / "shaders" / "lola-retro" / "shaders"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from make_presets import BASE, FLAT, PASSES, PRESETS, fmt  # noqa: E402
+from make_presets import BASE, FLAT, PASSES, PRESET_PASSES, PRESETS, fmt, with_native_pass  # noqa: E402
 
 # The parameters left adjustable, in the order the emulator's list shows them.
 # Everything else is fixed at the preset's value.
@@ -65,11 +76,11 @@ PC_PARAMS = [
 ]
 
 
-def retroarch_chain():
-    """The RetroArch pass chain from make_presets.PASSES. filter and wrap have RetroArch's meaning:
-    how the pass samples its Source (a pass's output is read by later passes with the filter and
-    wrap of the pass after it)."""
-    kv = dict(re.findall(r"^(\w+) = (.+)$", PASSES, flags=re.M))
+def retroarch_chain(passes=PASSES):
+    """A RetroArch pass chain (make_presets.PASSES unless given). filter and wrap have RetroArch's
+    meaning: how the pass samples its Source (a pass's output is read by later passes with the
+    filter and wrap of the pass after it)."""
+    kv = dict(re.findall(r"^(\w+) = (.+)$", passes, flags=re.M))
     chain = []
     for i in range(int(kv["shaders"])):
         p = dict(src=Path(kv[f"shader{i}"]).stem, alias=kv.get(f"alias{i}", ""),
@@ -129,6 +140,13 @@ TARGETS = {
 for _t in TARGETS.values():
     _cable = _t["fixed"].get("LR_CABLE", PRESETS[_t["preset"]].get("LR_CABLE", BASE["LR_CABLE"]))
     assert _cable > 2.5 and "LR_CABLE" not in _t["params"], _t["preset"]
+
+# Kodi runs every preset of the RetroArch version, on the same pass chains (make_presets.py), so its
+# passes are shared by all of them and every parameter stays adjustable: a preset only sets values,
+# as in RetroArch. Kodi has no feedback textures (no afterglow), and it keeps the picture area to the
+# game's shape itself.
+KODI = dict(api="kodi", out=ROOT / "kodi" / "lola-retro", title="every preset", emulator="Kodi",
+            defines=["LR_NO_FEEDBACK"], fixed={})
 
 TYPES = r"(?:void|bool|int|uint|float|vec2|vec3|vec4|ivec2|mat3|mat4|Timing)"
 
@@ -317,6 +335,27 @@ def box_samplers(stage, passes, index):
     return stage[:cut] + "\n" + block + stage[cut:]
 
 
+def kodi_samplers(stage, passes, index):
+    """Kodi: rename the samplers of one stage to the names Kodi binds. Kodi calls the previous pass's
+    output Texture and the frame OrigTexture. An aliased pass's output is <alias>Texture, but only for
+    passes before the previous one, so a pass that reads the previous pass by its alias reads Texture.
+    Kodi's textures are the exact size of each picture and its wrap modes and filters mean what they
+    mean in RetroArch, so the reads themselves stay as they are."""
+    for name in re.findall(r"^\s*uniform\s+sampler2D\s+(\w+)\s*;", stage, flags=re.M):
+        if name == "Source":
+            new = "Texture"
+        elif name == "Original":
+            new = "OrigTexture"
+        else:
+            j = next(k for k, p in enumerate(passes) if p["alias"] == name)
+            assert j < index, f"{name} is read before it is drawn"
+            new = "Texture" if j == index - 1 else f"{name}Texture"
+        stage = re.sub(r"\b" + name + r"\b", new, stage)
+    declared = re.findall(r"^\s*uniform\s+sampler2D\s+(\w+)\s*;", stage, flags=re.M)
+    assert len(declared) == len(set(declared)), f"pass {index} reads one texture by two names"
+    return stage
+
+
 def convert(index, target, values, table):
     """GLSL source of pass number index."""
     passes, api = target["passes"], target["api"]
@@ -359,6 +398,9 @@ def convert(index, target, values, table):
         assert n == 1, src_name
         vs = box_samplers(vs, passes, index)
         fs = box_samplers(fs, passes, index)
+    elif api == "kodi":
+        vs = kodi_samplers(vs, passes, index)
+        fs = kodi_samplers(fs, passes, index)
 
     adjustable = target["params"]
     named = set(re.findall(r"\b(LR_[A-Z_]+)\b", text))
@@ -367,11 +409,15 @@ def convert(index, target, values, table):
     relay = used_parameters(common, [vs, fs], adjustable) if api == "amiberry" and not owner else []
 
     # Amiberry runs OpenGL 3.3 core. 86Box asks for OpenGL 3.2 (GLSL 1.50) and keeps only "#version"
-    # plus one word of this line, so no profile word (150 means core anyway)
-    out = ["#version 330 core" if api == "amiberry" else "#version 150",
-           f"// Lola Retro - {src_name} pass for {target['emulator']} ({target['title']}).",
-           f"// Generated by tools/make_glsl.py from shaders/lola-retro/shaders/{src_name}.slang. Do not edit.",
-           ""]
+    # plus one word of this line, so no profile word (150 means core anyway). Kodi turns the version
+    # into an OpenGL ES one on GLES (330 is 3.10 es), which needs default precisions; older Kodi keeps
+    # a profile word there and the pass fails to compile, so Kodi's has none.
+    version = {"amiberry": ["#version 330 core"], "86box": ["#version 150"],
+               "kodi": ["#version 330", "#ifdef GL_ES", "precision highp float;", "precision highp int;",
+                        "precision highp sampler2D;", "#endif"]}[api]
+    out = version + [f"// Lola Retro - {src_name} pass for {target['emulator']} ({target['title']}).",
+                     f"// Generated by tools/make_glsl.py from shaders/lola-retro/shaders/{src_name}.slang. Do not edit.",
+                     ""]
     out += [f"#define {d}" for d in target["defines"]]
     out.append("")
     if owner:
@@ -382,7 +428,7 @@ def convert(index, target, values, table):
             assert api != "86box" or 0 < len(desc) <= 63, f"86Box would skip {n}: description over 63 characters"
             out.append(f'#pragma parameter {n} "{desc}" {fmt(values[n])} {fmt(lo)} {fmt(hi)} {fmt(step)}')
         out.append("")
-    if api == "amiberry":
+    if api in ("amiberry", "kodi"):
         out += ["uniform vec2 TextureSize;       // Source: the previous pass (the frame for the first pass)",
                 "uniform vec2 OrigTextureSize;   // Original: the emulator's frame",
                 "uniform vec2 OutputSize;        // this pass",
@@ -416,7 +462,7 @@ def convert(index, target, values, table):
         out.append("// fixed by the preset")
         out += [f"const float {n} = {float(values[n])!r};" for n in fixed]
         out.append("")
-    if owner or api == "86box":
+    if owner or api in ("86box", "kodi"):
         names = adjustable if owner else declared
         out += [f"uniform float {n};" for n in names]
         if names:
@@ -512,6 +558,48 @@ def preset_text(target, title=None, overrides=None):
     return "\n".join(lines)
 
 
+def kodi_chain(name):
+    """A preset's RetroArch chain as Kodi runs it: without the CRT pass's alias, which only the
+    afterglow reads."""
+    text = with_native_pass(PRESET_PASSES.get(name, PASSES))
+    text, n = re.subn(r"^alias(\d+) = LR_CRT\n", "", text, flags=re.M)
+    assert n == 1, name
+    return text
+
+
+def write_kodi(table):
+    """The Kodi version: the shared passes in kodi/lola-retro/shaders and every preset in curved/
+    and flat/, with the RetroArch preset's chain and values."""
+    target = dict(KODI, params=list(table))
+    values = {n: d[1] for n, d in table.items()}
+    out = target["out"]
+    sources = {}
+    for name in PRESETS:
+        text = kodi_chain(name)
+        passes = retroarch_chain(text)
+        for i, p in enumerate(passes):
+            glsl = convert(i, dict(target, passes=passes), values, table)
+            assert sources.setdefault(p["src"], glsl) == glsl, f"{p['src']} differs between presets"
+        chain = re.sub(r"\.\./shaders/([\w-]+)\.slang", r"../shaders/\1.glsl", text)
+        for folder, variant in (("curved", {}), ("flat", FLAT)):
+            vals = {**BASE, **PRESETS[name], **variant}
+            lines = [f"# Lola Retro - {name} ({folder}) for Kodi",
+                     "# Generated by tools/make_glsl.py from the RetroArch presets. Do not edit.", "",
+                     chain.rstrip(), "",
+                     'parameters = "' + ";".join(vals) + '"']
+            lines += [f"{n} = {fmt(v)}" for n, v in vals.items()]
+            dest = out / folder / f"{name}.glslp"
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text("\n".join(lines) + "\n")
+            print("wrote", dest.relative_to(ROOT))
+    (out / "shaders").mkdir(parents=True, exist_ok=True)
+    for src, glsl in sources.items():
+        dest = out / "shaders" / f"{src}.glsl"
+        dest.write_text(glsl)
+        print("wrote", dest.relative_to(ROOT))
+    (out / "LICENSE").write_text((ROOT / "LICENSE").read_text())
+
+
 def main():
     table = parameter_table()
     for target in TARGETS.values():
@@ -545,6 +633,7 @@ def main():
                 dest.write_text(preset_text(target, title + (", flat" if flat else ""), diff))
                 print("wrote", dest.relative_to(ROOT))
         (out / "LICENSE").write_text((ROOT / "LICENSE").read_text())
+    write_kodi(table)
 
 
 if __name__ == "__main__":
