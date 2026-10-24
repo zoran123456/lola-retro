@@ -2180,11 +2180,12 @@ void main()
         float damper = 1.0;
         if (mt > 0.5 && mt < 1.5)
         {
-            // aperture grille: the two horizontal damper wires
+            // aperture grille: the two horizontal damper wires (Damper wires: 1 as on the tube, less
+            // fainter, 0 none; the wires were there, so leaving them out is the viewer's choice)
             float hp = tubePx.y;
             float sw = max(0.45, hp / 4000.0);
             float d1 = (ut.y - 1.0 / 3.0) * hp, d2 = (ut.y - 2.0 / 3.0) * hp;
-            damper = 1.0 - 0.2 * (exp(-0.5 * d1 * d1 / (sw * sw)) + exp(-0.5 * d2 * d2 / (sw * sw)));
+            damper = 1.0 - 0.2 * global.LR_DAMPER * (exp(-0.5 * d1 * d1 / (sw * sw)) + exp(-0.5 * d2 * d2 / (sw * sw)));
         }
 
         // halation: light diffused in the glass (energy-conserving)

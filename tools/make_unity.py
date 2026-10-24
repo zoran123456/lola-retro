@@ -385,6 +385,7 @@ FIELDS = {
     "LR_YTRAP": ("lumaTrap", None),
     "LR_DBLEND": ("ditherBlend", None),
     "LR_DBLEND_AUTO": ("ditherBlendAuto", bool),
+    "LR_DAMPER": ("damperWires", None),
     "LR_SHARP": ("sharpness", None),
     "LR_SAT": ("colour", None),
     "LR_TINT": ("tint", None),

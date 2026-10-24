@@ -50,6 +50,7 @@ layout(push_constant) uniform Push
 #pragma parameter LR_MASK_STR "Mask strength" 0.5 0.0 1.0 0.01
 #pragma parameter LR_MASK_TRIADS "Mask triads per screen height" 360.0 150.0 900.0 10.0
 #pragma parameter LR_MASK_PX "Mask on screen pixels (0 off, 1 auto, 2-6 px per triad)" 0.0 0.0 6.0 1.0
+#pragma parameter LR_DAMPER "Damper wires of the aperture grille (0 off, 1 as on the tube)" 1.0 0.0 1.0 0.1
 #pragma parameter LR_WHITE "White point (K)" 8500.0 6500.0 9300.0 100.0
 #pragma parameter LR_PHOS "Phosphors (0 auto, 1 sRGB, 2 SMPTE-C, 3 EBU, 4 Japanese P22)" 0.0 0.0 4.0 1.0
 #pragma parameter LR_HDR_GLASS "--- Glass ---" 0.0 0.0 0.0 1.0
@@ -117,6 +118,7 @@ layout(std140, set = 0, binding = 0) uniform UBO
     float LR_MASK_STR;
     float LR_MASK_TRIADS;
     float LR_MASK_PX;
+    float LR_DAMPER;
     float LR_WHITE;
     float LR_PHOS;
     float LR_HDR_GLASS;
