@@ -69,12 +69,12 @@ What it does (`ditherBlend` in `common.inc`, used by `decode.inc` for RGB and `e
   subcarrier rhythm, not this. Cores that crop or add borders do change it, as they change composite:
   NES cropped to 240 px reads 5.03 MHz (NTSC share 0.30 instead of 0.47), H32 with borders (284 px) 5.96 MHz
   (0.75), H40 with borders (348 px) 7.30 MHz (0.98 instead of 0.95; PAL 0.69 instead of 0.44).
-- PAL or NTSC (`palByRate`): TV standard when it is set; otherwise `OriginalFPS`, the core's frame rate, when
-  RetroArch defines `_HAS_FRAMETIME_UNIFORMS` (RetroArch 1.22.2 has both; its slang README documents them),
-  under 52 Hz is PAL; otherwise getTiming's line count, which reads PAL games with 224 or 240 lines as NTSC
-  (NTSC share 0.47 instead of 0.03 for 256-wide). 50 Hz consoles run at about 49.7 to 50.01 frames a second and
-  60 Hz ones at 59 to 60.1; the per-core values are to be measured (a separate note on frame-rate detection).
-  The ports (Amiberry, 86Box) have no such uniform and keep the line count.
+- PAL or NTSC: `t.pal` from `getTiming`, TV standard (auto: `OriginalFPS`, the core's frame rate, under 52 Hz
+  is PAL where RetroArch passes it, from 1.20 with `_HAS_FRAMETIME_UNIFORMS`; otherwise the line count, which
+  reads PAL games with 224 or 240 lines as NTSC: NTSC share 0.47 instead of 0.03 for 256-wide). First written
+  as a helper of its own (`palByRate`), folded into `t.pal` on 2026-10-24. The rates per core were measured
+  in [core-frame-rates.md](core-frame-rates.md): PAL cores 49.7 to 50.2, 60 Hz ones 54.7 or more; exactly 60
+  is left to the line count. The ports (Amiberry, 86Box) have no such uniform and keep the line count.
 
 Checked with a ctypes render of the whole chain on Apple's OpenGL (decoder output; amplitude of the stripes'
 fundamental; grey stripes 64/191 for luma, two colours of about equal luma for colour), against the same TV

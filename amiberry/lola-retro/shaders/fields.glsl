@@ -98,6 +98,19 @@ vec2 rfEcho(float cable)
     return vec2(0.0, 1.0);
 }
 
+// The console's TV standard from the core's frame rate (OriginalFPS, docs/sources/core-frame-rates.md).
+// Every 50 Hz system reports 49.7 to 50.2 frames a second, every 60 Hz one 54.7 or more (the consoles
+// 59.2 to 60.1), so below 52 is PAL whatever the line count: most PAL SNES games and the Mega Drive's
+// 224-line mode have 224 lines. Exactly 60 says nothing: the image viewer, Play! (PAL games too) and
+// FinalBurn Neo's default report it whatever the content, and the cores that report it for NTSC
+// (PicoDrive, Mupen64Plus-Next) send at most 240 lines a field, which the line count takes as NTSC
+// too. Returns 1 PAL, 0 NTSC, -1 when the rate is missing (RetroArch before 1.20, the Amiberry and
+// 86Box ports) or says nothing: then the line count decides (getTiming).
+float rateStandard()
+{
+    return -1.0;
+}
+
 // TV show: how the programme's lines map to the console's. x: raster lines per console line
 // (2 for a 240p/288p console, whose line is drawn in both fields), y: console lines per
 // programme line (1 unless the studio's standards converter scaled the picture to the other
@@ -109,8 +122,11 @@ vec4 showLines(float pal, float interlace, float lines)
     bool prog = interlace < 0.5;
     float field = pal > 0.5 ? 288.0 : 240.0;
     float plines = prog ? field : 2.0 * field;
-    // the console's own standard by the same rule as TV standard auto (getTiming)
-    float own = ((prog ? lines : lines * 0.5) > 240.5 ? 288.0 : 240.0) * (prog ? 1.0 : 2.0);
+    // the console's own standard by the same rule as TV standard auto (getTiming): the frame rate
+    // where it says, otherwise the line count
+    float rs = rateStandard();
+    bool ownPal = rs < -0.5 ? (prog ? lines : lines * 0.5) > 240.5 : rs > 0.5;
+    float own = (ownPal ? 288.0 : 240.0) * (prog ? 1.0 : 2.0);
     float scv = own / plines;
     // (lines of an upscaled frame can be a hair off a whole number: a margin)
     return vec4(prog ? 2.0 : 1.0, scv, 0.5 * scv - 0.5 - floor(0.5 * (own - lines) + 0.01), plines);
@@ -215,8 +231,9 @@ vec3 x68Raster(float rows, float id)
 // 2 (the computer monitor, see getTiming) finds the native lines the same way.
 // More than one k can fit: 1440 lines are 240 lines at 6x and 288 at 5x, 1120 lines 224 at 5x
 // and 280 at 4x. A k that gives a standard height wins: 240 or 224 lines for NTSC, 288 or 256
-// for PAL (twice that in the 480i class), NTSC first unless TV standard is set to PAL. Without
-// one, the smallest k that fits (docs/sources/internal-resolution.md).
+// for PAL (twice that in the 480i class), NTSC first unless TV standard is set to PAL or, on auto,
+// the frame rate says PAL (rateStandard). Without one, the smallest k that fits
+// (docs/sources/internal-resolution.md).
 // Returns k (1 for native frames).
 float upscaleOf(vec2 orig)
 {
@@ -228,7 +245,8 @@ float upscaleOf(vec2 orig)
     bool scaled = (id < 0.5 && !il) ? orig.y > 576.0 : (tv && orig.y > base * 1.5);
     if (!scaled) return 1.0;
     // the standard heights, the preferred one first
-    vec4 hs = (LR_NORM > 1.5 ? vec4(288.0, 256.0, 240.0, 224.0) : vec4(240.0, 224.0, 288.0, 256.0))
+    bool palFirst = LR_NORM > 1.5 || (LR_NORM < 0.5 && rateStandard() > 0.5);
+    vec4 hs = (palFirst ? vec4(288.0, 256.0, 240.0, 224.0) : vec4(240.0, 224.0, 288.0, 256.0))
             * (il ? 2.0 : 1.0);
     float first = 0.0, best = 0.0, rank = 4.0;
     for (float k = 2.0; k <= 16.0; k += 1.0)
@@ -302,9 +320,12 @@ Timing getTiming(vec2 orig, uint frameCount)
     else if (LR_NORM > 0.5) t.pal = 0.0;
     else
     {
+        // the core's frame rate where it says (rateStandard), otherwise the line count: an Amiga
+        // NTSC frame with its overscan border has up to 243 lines, a PAL one 256 or more
         float lines = t.interlace > 0.5 ? nat.y * 0.5 : nat.y;
-        // an Amiga NTSC frame with its overscan border has up to 243 lines, a PAL one 256 or more
-        t.pal = (t.scan < 0.5 && lines > (amiga ? 249.5 : 240.5)) ? 1.0 : 0.0;
+        float rs = rateStandard();
+        bool palLines = lines > (amiga ? 249.5 : 240.5);
+        t.pal = (t.scan < 0.5 && (rs < -0.5 ? palLines : rs > 0.5)) ? 1.0 : 0.0;
     }
     // full source width: a wider (upscaled) line still takes the same time
     float base = mix(a.x, a.y, t.pal);
@@ -355,16 +376,6 @@ float gaussGain(float f, float fc)
     return exp(-19.7392 * s * s * f * f);
 }
 
-// PAL or NTSC for Dither blend auto: TV standard when it is set by hand; otherwise the core's frame
-// rate where RetroArch passes it (50 Hz systems run at 49.7 to 50.01 frames a second, 60 Hz ones at
-// 59 to 60.1); otherwise getTiming's guess from the line count, which takes a PAL game with 224 or
-// 240 lines (most PAL SNES games, the Mega Drive in its 224-line mode) for NTSC.
-bool palByRate(Timing t)
-{
-    if (LR_NORM > 0.5) return LR_NORM > 1.5;
-    return t.pal > 0.5;
-}
-
 // How much Dither blend takes out of a 1-pixel pattern (the part that alternates from one console
 // pixel to the next, at half the pixel clock): x of its luma, y of its colour. Dither blend sets both.
 // Dither blend auto takes what composite would have taken (docs/sources/dither-blend.md): the luma
@@ -376,13 +387,13 @@ bool palByRate(Timing t)
 // own chroma filters already take it. Auto works on 15 kHz TV timings, the consoles and the Amiga,
 // which reached most players through composite; arcade boards (RGB monitors) and computer monitors
 // keep Dither blend as set. It follows the mode (a Mega Drive game switching between 256 and 320
-// pixels), the TV standard (palByRate) and the composite settings, and only knows 1-pixel patterns.
+// pixels), the TV standard (t.pal) and the composite settings, and only knows 1-pixel patterns.
 vec2 ditherBlend(Timing t, float cable)
 {
     float d = LR_DBLEND;
     bool tv = t.scan < 0.5 && t.monitor < 0.5 && !(t.id > 7.5 && t.id < 8.5);
     if (LR_DBLEND_AUTO < 0.5 || !tv) return vec2(d);
-    bool pal = palByRate(t);
+    bool pal = t.pal > 0.5;
     float fsc = pal ? 4.433619 : 3.579545;
     float f = 0.5 * t.pclk / t.scale;                 // the pattern's frequency (MHz)
     float sh = LR_SHARP * 1.4;

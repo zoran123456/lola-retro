@@ -74,6 +74,8 @@ scanned twice (512 rasters, no gaps on the monitor), at 55 Hz.
   15 kHz game with a custom 256-line window (gaps). The standard 15 kHz modes show 240 lines. Only the frame
   rate tells them apart for sure (55 vs 61 Hz), and a slang shader does not get it reliably (OriginalFPS
   exists only in newer RetroArch versions; an unknown uniform stops the shader from loading in older ones).
+  px68k does not report it anyway: 59.94 (or 61.46 with its adjusted rates off) for every mode
+  ([core-frame-rates.md](core-frame-rates.md)).
 - 15 kHz interlaced (512x480) and 31 kHz 512-line frames both arrive with every line, tall and close
   together; on the monitor the first is two interlaced fields of 240 lines, the second 512 progressive lines.
 

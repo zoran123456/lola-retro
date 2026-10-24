@@ -64,7 +64,10 @@ timing for Beetle Saturn's 330×224 and 352×224 frames, Beetle Saturn has no up
 YabaSanshiro send native frames unless their resolution option is raised (then set Frames over 300 lines to 0).
 
 The presets are the device presets below with one or two values changed, so every parameter still works.
-For a PAL console set **TV standard** to 2 if the auto setting picks NTSC (the frame size cannot always tell).
+PAL or NTSC: in RetroArch 1.20 and newer, TV standard auto goes by the frame rate the core reports (below 52
+frames a second is PAL), so PAL games are found whatever their line count. Older versions go by the line count,
+which takes PAL games with 224 or 240 lines (most PAL SNES games) for NTSC: set **TV standard** to 2 for those,
+and for cores that report 60 frames a second whatever the game (Play!).
 
 ## Curved or flat
 
@@ -152,8 +155,9 @@ At 2× an upscaled PS1 frame looks like 480i, so set Console timing 4 by hand. 4
 **Frames over 300 lines** 1 does the same for every TV timing, for cores that never upscale (Beetle Saturn)
 or run at 1×: every frame over 300 lines is the console's own 480i or 576i (960 or 1152 lines: 2×).
 Some heights fit two factors: 1440 lines are 240 lines at 6× and 288 at 5×, 1792 lines 224 at 8× and 256 at 7×.
-The shader then takes the NTSC height (240 or 224 lines); for a PAL game set **TV standard** to 2, and 288 or
-256 lines win. Up to 4× no height is ambiguous.
+The shader then takes the NTSC height (240 or 224 lines), or the PAL height (288 or 256) when TV standard
+says PAL: set to 2, or on auto when the core's frame rate says PAL (RetroArch 1.20 and newer). Up to 4× no
+height is ambiguous.
 In the TV presets a higher internal resolution costs about as much GPU time as native: the encoder and
 decoder always work at 1280 samples per line (see [Performance](#performance)).
 
@@ -164,13 +168,13 @@ Every preset only sets parameters, so you can tweak any preset in **Quick Menu �
 | Parameter | Meaning |
 |---|---|
 | Console timing | Pixel clock and colour-subcarrier rhythm of the console. 0 = auto (see below). |
-| TV standard | 0 auto (by line count), 1 NTSC, 2 PAL. Set it by hand for PAL consoles in 60 Hz mode (PAL60, common on PS2 and Dreamcast): the line count says NTSC but the colour is PAL. It also switches the colour decoder and the phosphors. On a TV show (Cable 4) it is the standard of the programme: `tv-show-broadcast` sets 2, a European programme, and a game in the other standard goes through the studio's standards converter (see [TV show](#tv-show)). |
+| TV standard | 0 auto, 1 NTSC, 2 PAL. Auto goes by the frame rate the core reports, which RetroArch 1.20 and newer pass to shaders: below 52 frames a second is PAL, whatever the line count (every PAL core reports 49.7 to 50.2, every 60 Hz one 54.7 or more). Where the rate is missing (older RetroArch, the Amiberry and 86Box versions) or exactly 60 whatever the game (the image viewer, Play!, FinalBurn Neo's default), the line count decides: more than 240 is PAL. Set it by hand for PAL consoles in 60 Hz mode (PAL60, common on PS2 and Dreamcast): the frame rate and the line count say NTSC but the colour is PAL. It also switches the colour decoder and the phosphors. On a TV show (Cable 4) it is the standard of the programme: `tv-show-broadcast` sets 2, a European programme, and a game in the other standard goes through the studio's standards converter (see [TV show](#tv-show)). |
 | Frames over 300 lines | A 480-line frame can be a console's own 480i or a 240-line game at 2× internal resolution, and its size cannot tell which. 0 (default): auto. Up to 576 lines is the console's 480i or 576i, more is read as upscaled; with Console timing set by hand, already more than 360 lines (so on timing 4 a 480i game's two fields are averaged into one line). 1: every frame over 300 lines is the console's own 480i or 576i, on every TV timing, with the timing as set; an upscaled one is still found (960 lines: 480i at 2×, 1152: 576i at 2×). For cores that never upscale (Beetle Saturn) or run at 1×: a 240-line game at 2× would be read as 480i. 2: every frame over 300 lines goes to a computer monitor instead, as if you had a second screen for the high-res modes (a compromise, see [Computer monitor for high-res frames](#computer-monitor-for-high-res-frames)). The Amiga, VGA, 24 kHz and X68000 timings (6, 7, 9, 10, 11) are not affected. |
 | Cable | 0 RF, 1 Composite, 2 S-Video, 3 RGB, 4 TV show: the game as seen on a TV programme, from a studio through the antenna (see [TV show](#tv-show)). RF and the TV show go through the TV's IF filter, which keeps the picture below about 4.2 MHz (NTSC) or 5 MHz (PAL): the 1-pixel stripes of 512- and 640-wide modes (SNES hi-res, PlayStation 640) do not get through. |
 | Comb filter | Better TVs separated colour with a comb filter. Only works when the console flips the subcarrier phase every line (PlayStation, Amiga). On a TV show (Cable 4) the broadcast's own NTSC timing lets it work for every console. |
 | Luma trap in the console | How much of the fine luma detail the console's encoder filtered out before mixing in colour. Lower it for a stronger rainbow on fine stripes (Sonic's waterfall), raise it for a cleaner picture. Real consoles differed a lot here: 0 is like an early Mega Drive Model 1 (strong rainbow), 0.75 (default) a typical console, 1 a later model with a better encoder. The NES and SNES system presets set 0: the NES draws its composite signal directly, and the SNES passes its luma to the encoder's mixer unfiltered. |
 | Dither blend on RGB and S-Video | Off by default. Modern processing, not something a real TV did (similar to the notch filter of the RetroTINK 4K Pro): 1-pixel dither stripes blend into the colour or transparency the artists meant, without composite's rainbow and blur. Lines one pixel thin get slightly softer. The composite presets do not use it (composite blends by itself); to blend as much as they do: on NTSC 1 for 320-wide modes (most PlayStation games, Mega Drive H40) and 0.5 for 256-wide modes (NES, SNES, Master System, Mega Drive H32), on PAL about 0.45 and 0.1. Composite takes out all of the stripes' colour and that share of their brightness; Dither blend takes out the same share of both. |
-| Dither blend auto | Off by default (0). 1: Dither blend does what composite would have done, worked out from the shader's own composite filters (Luma trap in the console, Sharpness, the TV's trap or Comb filter) for the console's pixel clock and the TV standard: all of the stripes' colour and composite's share of their brightness, so on RGB and S-Video a 1-pixel pattern keeps the contrast it had on composite, without the rainbow. It follows the mode by itself (NTSC: about 0.5 of the brightness for 256-wide modes, 0.95 for 320-wide; PAL: almost none and about 0.45). On the consoles and the Amiga; arcade boards (Console timing 8) and computer monitors keep Dither blend as set. PAL or NTSC: TV standard when it is set, otherwise the core's frame rate where RetroArch passes it to shaders (1.22 does; under 52 Hz is PAL), otherwise the line count. Patterns wider than one pixel are not blended. In 512- and 640-wide modes the composite and RGB passes do not yet follow their filters exactly, so there it blends somewhat differently from the composite presets (`docs/sources/dither-blend.md` in the repository). |
+| Dither blend auto | Off by default (0). 1: Dither blend does what composite would have done, worked out from the shader's own composite filters (Luma trap in the console, Sharpness, the TV's trap or Comb filter) for the console's pixel clock and the TV standard: all of the stripes' colour and composite's share of their brightness, so on RGB and S-Video a 1-pixel pattern keeps the contrast it had on composite, without the rainbow. It follows the mode by itself (NTSC: about 0.5 of the brightness for 256-wide modes, 0.95 for 320-wide; PAL: almost none and about 0.45). On the consoles and the Amiga; arcade boards (Console timing 8) and computer monitors keep Dither blend as set. PAL or NTSC: as TV standard (on auto the core's frame rate, otherwise the line count). Patterns wider than one pixel are not blended. In 512- and 640-wide modes the composite and RGB passes do not yet follow their filters exactly, so there it blends somewhat differently from the composite presets (`docs/sources/dither-blend.md` in the repository). |
 | Sharpness, Colour, Tint, Brightness, Contrast | The TV's own knobs. Tint only exists on NTSC sets. |
 | Colour decoder | 0 auto, 1 standard, 2 US TV, 3 Japanese TV. American and Japanese TVs decoded colour on shifted axes with extra red gain ("red push"): yellows lean orange, reds are stronger, skin looks warmer. Auto uses the US TV decoder (Sony CXA2025AS) for NTSC on composite, RF and S-Video, and the standard one for PAL and RGB. |
 | RF noise | Snow on the antenna input (RF and TV show). |
@@ -284,7 +288,8 @@ on the RF or composite cable at home. Most of that is the chain, which the prese
   5 MHz (PAL B/G), so the 1-pixel stripes of 512- and 640-wide games do not get through.
 - **TV standard.** The preset is a European (PAL) programme. A game in the other standard (an NTSC
   game, 240 lines) went through the studio's standards converter, which scaled it to the PAL raster,
-  so it fills the screen; a PAL game with 256 lines keeps its black borders. Set **TV standard** to
+  so it fills the screen; a PAL game keeps its black borders (the shader knows it is PAL by its frame
+  rate in RetroArch 1.20 and newer, in older versions only when it has more than 240 lines). Set **TV standard** to
   0 for a programme in the game's own standard (an American programme for NTSC games).
 
 The rest was not in the signal: the footage was picked from the best moments, often from

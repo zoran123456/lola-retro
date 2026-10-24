@@ -5,7 +5,8 @@ automatic Dither blend, whose amount depends on NTSC or PAL. Lola Retro guesses 
 alone: PAL from the line count (over 240), so PAL games with 224 or 240 lines run as NTSC; Beetle Saturn's
 352x224 gets the Mega Drive's timing, PlayStation games 256 wide the SNES row, and the X68000's 256-line
 frames need Console timing 11. This note gives the frame rate each core reports, measured where the core and a
-game were at hand, and read from the core's source otherwise. No shader code uses it yet.
+game were at hand, and read from the core's source otherwise. TV standard auto uses it (below); the console
+guess does not yet.
 
 ## What RetroArch passes
 
@@ -187,7 +188,30 @@ RetroArch; Dolphin's rate at run time; Beetle PSX's switch timing.
 
 ## Where the code uses it
 
-Not yet. Planned: TV standard auto as PAL below 52 Hz (the automatic Dither blend first), then in
-`getTiming()` the console's row and pixel clock where the rate names the console, the old guess where the
-uniform is missing (older RetroArch, the ports) or the rate names nothing; Console timing and TV standard set
-by hand still win.
+- `rateStandard()` in `common.inc` (2026-10-24): PAL below 52 Hz, NTSC at 52 or more, nothing when the
+  uniform is missing (RetroArch before 1.20, the Amiberry and 86Box ports, where `make_glsl.py` drops the
+  `#ifdef`) or the rate is exactly 60.0. Exactly 60.0 is left out because the image viewer, Play! (PAL games
+  too) and FinalBurn Neo's default report it whatever the content; the cores that report it for NTSC
+  (PicoDrive, SMS Plus GX, QuickNES, Mupen64Plus-Next, Kronos, YabaSanshiro, PCSX ReARMed) send at most 240
+  lines a field, which the line count takes as NTSC too. Exactly 50.0 counts: every core found reporting it
+  runs PAL content.
+- Used for TV standard auto in `getTiming()` (`t.pal`, TV timings only; TV standard set by hand wins), for the
+  console's own standard in front of the TV show's standards converter (`showLines`), and for which height
+  wins in `upscaleOf()` when two fit. Dither blend auto takes `t.pal`. Where the rate says nothing, all three
+  go by the line count as before, so the image viewer and the ports render as they did.
+- Checked offscreen (macOS GL 4.1, a debug pass running `getTiming` and `showLines` of `common.inc`, old against
+  new): with no uniform, a rate of 0 or exactly 60.0, 0 of 55566 cases differ (49 frame sizes from 1x1 to
+  2560x2240, every Console timing, TV standard, Frames over 300 lines, Cable 1, 3 and 4, Monitor in mm on and
+  off). With the cores' PAL rates, 224- and 240-line frames turn PAL (and the TV show keeps a PAL game's
+  borders); with their NTSC rates, 256- and 287-line frames turn NTSC; a 1440-line frame at a PAL rate is
+  288 lines at 5x instead of 240 at 6x. TV standard set by hand, VGA, the X68000, 24 kHz and the computer
+  monitor are not affected. Every pass and both ports compile (with and without `_HAS_FRAMETIME_UNIFORMS`).
+- Checked in RetroArch 1.22.2 (Vulkan), a debug pass reading `getTiming` with real cores: the PAL games with 224
+  and 240 lines (bsnes-mercury and bsnes 2014 with the 240p Test Suite PAL and Pierre le Chef, Mesen PAL,
+  Genesis Plus GX, PicoDrive and BlastEm with Bubble and Squeak) are PAL now and were NTSC on main; the NTSC
+  games stay NTSC; PicoDrive NTSC (60.0) and the image viewer keep the line count. The whole consumer-tv-composite
+  preset on the 240p Test Suite PAL renders the same on auto as with TV standard 2 set by hand (0 pixels
+  differ); on the 240p Test Suite NTSC, and with the image viewer (two images, seven presets: composite flat and
+  curved, TV show, 1084S, RF, lite, super lite), it renders as on main. (Genesis Plus GX's own picture differs
+  from one run to the next at frame 200, so it was checked with the debug pass only.)
+- Not yet: the console's row and pixel clock where the rate names the console (the list above).

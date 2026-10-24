@@ -99,10 +99,10 @@ Or turn on **Dither blend auto**, and the shader works that amount out itself, f
 the mode the game is in (it follows a Mega Drive game that switches between 256 and 320 pixels), for NTSC or PAL
 and for the TV's settings. Like composite, it takes out all of the stripes' colour and that share of their
 brightness. It works on the consoles and the Amiga, which most people played through composite; arcade boards
-(RGB monitors) and computer monitors keep Dither blend as you set it. For PAL or NTSC it uses TV standard when you
-set it, otherwise the core's frame rate, which newer RetroArch versions pass to shaders (1.22 does), otherwise the
-line count. The line count takes PAL games with 224 or 240 lines (most PAL SNES games) for NTSC, so on an older
-RetroArch set TV standard to PAL for those. It only knows 1-pixel stripes: wider patterns stay as they are.
+(RGB monitors) and computer monitors keep Dither blend as you set it. For PAL or NTSC it uses TV standard, whose auto
+setting goes by the core's frame rate in RetroArch 1.20 and newer and by the line count in older versions. The line
+count takes PAL games with 224 or 240 lines (most PAL SNES games) for NTSC, so on an older RetroArch set TV standard
+to PAL for those. It only knows 1-pixel stripes: wider patterns stay as they are.
 
 ![Dither blend off and on, with composite for comparison](docs/dither-blend-sonic.jpg)
 

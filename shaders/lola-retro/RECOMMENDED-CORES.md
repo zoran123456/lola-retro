@@ -8,8 +8,8 @@ device. Three rules cover almost everything:
 1. **Internal resolution.** Native (1×) is the reference. Higher internal resolutions work too: the shader reads
    the frame as blocks of one console pixel, so the signal stays right and edges get smoother. 3× and up is
    detected by itself; for 2× and for upscaled 480-line consoles the table says which Console timing to set.
-   A PAL game at 5× or more: set **TV standard** to 2, as a few heights fit both standards (1440 lines are
-   240 lines at 6× and 288 at 5×).
+   A PAL game at 5× or more on RetroArch before 1.20: set **TV standard** to 2, as a few heights fit both
+   standards (1440 lines are 240 lines at 6× and 288 at 5×); newer versions tell PAL by the core's frame rate.
    Cores that never upscale (Beetle Saturn) or run at 1×: with **Frames over 300 lines** at 1, every frame
    with more than 300 lines is the console's own 480i or 576i, with the Console timing you set.
 2. **No filters inside the core.** Turn off any built-in "NTSC", "Blargg", "smoothing" or "blur" filter.
@@ -35,7 +35,7 @@ Systems that are not in that list use the id whose timing matches theirs.
 | Mega Drive / Genesis | Genesis Plus GX | Consumer TV (Composite) | auto (2 for 320 wide, set 3 for 256-wide games) | Blargg NTSC filter off, borders off. The famous transparent waterfalls need composite. |
 | Mega CD / Sega CD | Genesis Plus GX | Consumer TV (Composite) | auto (2) | Same as Mega Drive. |
 | 32X | PicoDrive | Consumer TV (Composite) | auto (2) | Same as Mega Drive. |
-| PC Engine / TurboGrafx-16, PC Engine CD | Beetle PCE, Beetle PCE Fast | Consumer TV (Composite) | **4**, and TV standard 1 (NTSC) | Its subcarrier rhythm (227½ cycles per line) matches the PlayStation's. With more than 240 lines shown, auto would read the frame as PAL. |
+| PC Engine / TurboGrafx-16, PC Engine CD | Beetle PCE, Beetle PCE Fast | Consumer TV (Composite) | **4** (on RetroArch before 1.20 also TV standard 1, NTSC) | Its subcarrier rhythm (227½ cycles per line) matches the PlayStation's. With more than 240 lines shown, an older RetroArch reads the frame as PAL by its line count; from 1.20 the core's frame rate (59.82) says NTSC. |
 | Neo Geo (AES/MVS) | FinalBurn Neo | Consumer TV (SCART RGB), or Amiga 1084S for the arcade look | auto | RGB arcade hardware, so composite timing does not matter. |
 
 ## Arcade
