@@ -253,6 +253,8 @@ Which preset and settings to use per system: [RECOMMENDED-CORES.md](shaders/lola
 - **Composite and RF signal.** RGB is encoded to YUV and QAM-modulated onto the 3.58 MHz (NTSC) or 4.43 MHz (PAL)
   subcarrier, with each console's real pixel clock and subcarrier phase per line and per field.
   SNES (227⅓ cycles per line) crawls diagonally, Mega Drive (exactly 228) stands still, PlayStation (227½) flips every line.
+  On RF (and on a TV show) the TV's IF filter keeps the picture below about 4.2 MHz (NTSC) or 5 MHz (PAL), so the
+  1-pixel stripes of 512- and 640-wide modes do not get through.
 - **The TV's decoder.** A luma trap or a 2-line comb filter, narrow consumer chroma bandwidth, PAL delay line,
   automatic gain and colour control, and the TV knobs (sharpness, colour, tint, brightness, contrast).
 - **S-Video and RGB** skip the parts of that chain they skipped in real life.

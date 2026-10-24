@@ -195,8 +195,11 @@ for _name, _over in PC_TUBES.items():
 # device most people had for that system, with the system's timing set by hand (the automatic
 # guess cannot tell systems with the same frame size apart).
 SYSTEMS = {
-    "nes": ("consumer-tv-composite", dict(LR_CONSOLE=1)),
-    "snes": ("consumer-tv-composite", dict(LR_CONSOLE=1)),
+    # No luma trap in either console: the NES PPU draws the composite waveform itself (nesdev wiki,
+    # NTSC video), and the SNES's S-ENC gets its luma back through a plain buffer, YO -> transistor ->
+    # YI (jwdonal schematic of the SNS-CPU-GPM boards). docs/sources/composite-luma-bandwidth.md
+    "nes": ("consumer-tv-composite", dict(LR_CONSOLE=1, LR_YTRAP=0)),
+    "snes": ("consumer-tv-composite", dict(LR_CONSOLE=1, LR_YTRAP=0)),
     "master-system": ("consumer-tv-composite", dict(LR_CONSOLE=3)),
     "mega-drive-genesis": ("consumer-tv-composite", dict(LR_CONSOLE=2)),
     # 227.5 cycles per line like the PlayStation; NTSC only, so the standard is set too

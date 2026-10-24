@@ -90,7 +90,7 @@ const float RF_ECHO_US = 0.8;    // delay in microseconds
 // TV, which decodes it like composite. Bandwidths in MHz at -3 dB.
 // Sony BVW-75P: Y 5.5 MHz -3 dB, colour 1.5 MHz -1.5 dB (about 2.1 MHz at -3 dB);
 // ITU-R BT.470: PAL U and V less than 3 dB down at 1.3 MHz. The transmitter's 5 MHz limit
-// (PAL B/G) is sharper than anything the TV's composite decoder passes, so it changes nothing.
+// (PAL B/G) and the receiving TV's IF filter: the same IF filter as on RF (IF_PAL, IF_NTSC in decode.inc).
 const float SHOW_TAPE_Y = 5.5;   // Betacam SP luma, one copy
 const float SHOW_TAPE_C = 2.1;   // Betacam SP colour difference signals, one copy
 const float SHOW_ENC_C = 1.3;    // the station's colour encoder (U and V)

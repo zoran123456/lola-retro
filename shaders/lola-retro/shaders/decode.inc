@@ -48,6 +48,25 @@ vec3 origPix(float xs, float y, float k)
 // Rotate a (cos, sin) pair by the angle whose (cos, sin) is r
 vec2 rotate(vec2 e, vec2 r) { return vec2(e.x * r.x - e.y * r.y, e.y * r.x + e.x * r.y); }
 
+// RF and the TV show come down an aerial, so the TV's IF filter limits the picture: about 4.2 MHz
+// in NTSC (M), 5 MHz in PAL B/G, with the sound carrier 4.5 / 5.5 MHz above the picture carrier
+// trapped. EPCOS M 3568 M (an NTSC IF filter): the sound carrier 43 dB down, 5.4 MHz 40-55 dB down;
+// 512-wide hi-res stripes do not get through (docs/sources/composite-luma-bandwidth.md). The cut is
+// written as 1 minus Gaussian bands, fitted to: flat to 3.3 MHz (NTSC) / 4.5 (PAL), -6 dB at about
+// 4.0 / 5.1, -12 dB at 4.2 / -15 at 5.32, under 30 dB from 4.5 / 5.5 MHz up. x: centre (MHz),
+// y: sigma (MHz), z: depth.
+const vec3 IF_NTSC[5] = vec3[5](vec3(4.444, 0.422, 0.5736), vec3(5.421, 0.813, 0.6596), vec3(7.190, 1.263, 0.6918),
+                                vec3(10.061, 1.789, 0.8616), vec3(13.686, 1.703, 0.8472));
+const vec3 IF_PAL[5] = vec3[5](vec3(5.495, 0.376, 0.6162), vec3(6.414, 0.721, 0.6375), vec3(7.995, 1.190, 0.6450),
+                               vec3(10.754, 1.827, 0.8841), vec3(13.976, 1.479, 0.7296));
+// How far each band reaches (sigmas) and the weakest band kept. Super lite: a shorter form, within
+// 2.6-4.1/255 of the full one and a third of its cost (docs/sources/lite-presets.md).
+#ifdef LR_SUPER_LITE
+const float IF_SIGMAS = 2.0, IF_MIN = 0.03;
+#else
+const float IF_SIGMAS = 3.0, IF_MIN = 0.004;
+#endif
+
 void main()
 {
     Timing T = getTiming(params.OriginalSize.xy, params.FrameCount);
@@ -151,19 +170,61 @@ void main()
         float c2 = -0.5 * mY * mY / (s2 * s2 * fs * fs);
         float a1 = 0.0, a2 = 0.0, w1s = 0.0, w2s = 0.0;
         int nYi = int(nY);
+        // the luma gain at the subcarrier, for the trap
+        float hf = (1.0 + sh) * exp(-19.7392 * s1 * s1 * T.fsc * T.fsc) - sh * exp(-19.7392 * s2 * s2 * T.fsc * T.fsc);
+        bool trapY = !sv && !comb && notch > 0.0;
+
+        // RF and the TV show: the IF filter (IF_NTSC, IF_PAL) multiplies luma and the trap. Each band
+        // of the cut times the luma Gaussian, and the first two times the trap's band, is again a Gaussian
+        // band (centre, sigma and depth from the product of two Gaussians), so here it is taken out of luma
+        // as a cos-modulated Gaussian over its own taps: bn taps either side, bw its weight, the envelope by
+        // the recurrence below (bv, bg, bq) and the cosine by rotation (bp by bc). Bands too weak to matter
+        // after the product (luma Gaussian far down there) are left out.
+        int nb = 0;
+        float bn[7], bw[7], ba[7], bv[7], bg[7], bq[7];
+        vec2 bc[7], bp[7];
+        float nB = nY;
+        if (cable < 0.5 || show)
+        {
+            float sF = fcY / (TAU * 0.1325), sB = fcC / (TAU * 0.1325);   // sigmas in frequency (MHz)
+            for (int i = 0; i < 7; i++)
+            {
+                bool trapBand = i >= 5;
+                if (trapBand && !trapY) break;
+                vec3 c = pal ? IF_PAL[trapBand ? i - 5 : i] : IF_NTSC[trapBand ? i - 5 : i];
+                float s = trapBand ? sB : sF, f0 = trapBand ? T.fsc : 0.0;
+                float vs2 = s * s + c.y * c.y;
+                float mu = (c.x * s * s + f0 * c.y * c.y) / vs2;   // the product's centre (MHz)
+                float tau = sqrt(vs2) / (TAU * s * c.y);            // and its sigma in time (us)
+                float depth = c.z * exp(-0.5 * (c.x - f0) * (c.x - f0) / vs2);
+                float w = trapBand ? -2.0 * notch * hf * depth : 2.0 * (1.0 + sh) * depth;
+                if (abs(w) < IF_MIN) continue;
+                float bk = -0.5 * mY * mY / (tau * tau * fs * fs);  // the envelope's exponent per tap^2
+                float nt = min(ceil(IF_SIGMAS * tau * fs / mY), 40.0);
+                float da = TAU * mu * mY / fs, a0 = -nt * da;
+                a0 -= TAU * floor(a0 / TAU + 0.5);
+                bn[nb] = nt;
+                bw[nb] = w * sqrt(-2.0 * bk / TAU);                 // over the envelope's sum
+                bv[nb] = exp(bk * nt * nt);
+                bg[nb] = exp(bk * (1.0 - 2.0 * nt));
+                bq[nb] = exp(2.0 * bk);
+                bc[nb] = vec2(cos(da), sin(da));
+                bp[nb] = vec2(cos(a0), sin(a0));                    // (cos, sin) at the band's first tap
+                ba[nb] = 0.0;
+                nB = max(nB, nt);
+                nb++;
+            }
+        }
+        int nBi = int(nB);
 #ifdef LR_SUPER_LITE
         // the Gaussian weights by recurrence, w(u + 1) = w(u) exp(c (2u + 1)): no exp at every tap
         float w1 = exp(c1 * nY * nY), w2 = exp(c2 * nY * nY);
         float g1 = exp(c1 * (1.0 - 2.0 * nY)), g2 = exp(c2 * (1.0 - 2.0 * nY));
         float q1 = exp(2.0 * c1), q2 = exp(2.0 * c2);
 #endif
-        for (int k = -nYi; k <= nYi; k++)
+        for (int k = -nBi; k <= nBi; k++)
         {
             float u = float(k);
-#ifndef LR_SUPER_LITE
-            float w1 = exp(c1 * u * u);
-            float w2 = exp(c2 * u * u);
-#endif
             float sp = n + u * mY;
             vec4 v = sig(sp, r);
 #ifdef LR_SUPER_LITE
@@ -177,12 +238,29 @@ void main()
                 s0 = 0.5 * (s0 + (nf == 1 ? vq.x : dot(vq.xyz, lw)));
             }
 #endif
-            a1 += w1 * s0; a2 += w2 * s0; w1s += w1; w2s += w2;
+            if (abs(k) <= nYi)
+            {
 #ifdef LR_SUPER_LITE
-            w1 *= g1; g1 *= q1; w2 *= g2; g2 *= q2;
+                a1 += w1 * s0; a2 += w2 * s0; w1s += w1; w2s += w2;
+                w1 *= g1; g1 *= q1; w2 *= g2; g2 *= q2;
+#else
+                float w1 = exp(c1 * u * u);
+                float w2 = exp(c2 * u * u);
+                a1 += w1 * s0; a2 += w2 * s0; w1s += w1; w2s += w2;
 #endif
+            }
+            for (int i = 0; i < 7; i++)
+            {
+                if (i < nb && abs(u) <= bn[i])
+                {
+                    ba[i] += bv[i] * bp[i].x * s0;
+                    bv[i] *= bg[i]; bg[i] *= bq[i];
+                    bp[i] = rotate(bp[i], bc[i]);
+                }
+            }
         }
         Y = (1.0 + sh) * a1 / w1s - sh * a2 / w2s;
+        for (int i = 0; i < 7; i++) if (i < nb) Y -= bw[i] * ba[i];
 
         // chroma: demodulate against the subcarrier, then low-pass.
         // The subcarrier's (cos, sin) is rotated from tap to tap instead of recomputed.
@@ -196,8 +274,6 @@ void main()
         // of the cycle, with the PAL V-switch; in x their average signal. The chroma is the same
         // low-pass of it as below, and the trap the band of x around the subcarrier (the reference's
         // phase cancels there). The same sums as below, to rounding.
-        float hf = (1.0 + sh) * exp(-19.7392 * s1 * s1 * T.fsc * T.fsc) - sh * exp(-19.7392 * s2 * s2 * T.fsc * T.fsc);
-        bool trapY = !sv && !comb && notch > 0.0;
         float da = TAU * T.fsc * mC / fs;
         vec2 rp = vec2(cos(da), sin(da));
         vec2 e = vec2(cos(nC * da), -sin(nC * da));      // (cos, sin) of the first tap's offset
@@ -285,8 +361,6 @@ void main()
         }
         vec2 cs = 2.0 * vec2(acc.x, vs * acc.y);
         uv = cs / wcs;
-        float hf = (1.0 + sh) * exp(-19.7392 * s1 * s1 * T.fsc * T.fsc) - sh * exp(-19.7392 * s2 * s2 * T.fsc * T.fsc);
-        bool trapY = !sv && !comb && notch > 0.0;
         // the previous line has its own subcarrier phase: rotate its sums by the difference
         // (the same for every frame of the cycle)
         float dl = phaseAt(tn, y - st, T) - (ph0 - tint);
