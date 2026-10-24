@@ -59,13 +59,9 @@ const vec3 IF_NTSC[5] = vec3[5](vec3(4.444, 0.422, 0.5736), vec3(5.421, 0.813, 0
                                 vec3(10.061, 1.789, 0.8616), vec3(13.686, 1.703, 0.8472));
 const vec3 IF_PAL[5] = vec3[5](vec3(5.495, 0.376, 0.6162), vec3(6.414, 0.721, 0.6375), vec3(7.995, 1.190, 0.6450),
                                vec3(10.754, 1.827, 0.8841), vec3(13.976, 1.479, 0.7296));
-// How far each band reaches (sigmas) and the weakest band kept. Super lite: a shorter form, within
-// 2.6-4.1/255 of the full one and a third of its cost (docs/sources/lite-presets.md).
-#ifdef LR_SUPER_LITE
-const float IF_SIGMAS = 2.0, IF_MIN = 0.03;
-#else
+// How far each band reaches (sigmas) and the weakest band kept. Super lite leaves the IF filter out:
+// it is for slow computers, and the filter would cost it a fifth of its frame (docs/sources/lite-presets.md).
 const float IF_SIGMAS = 3.0, IF_MIN = 0.004;
-#endif
 
 void main()
 {
@@ -184,6 +180,7 @@ void main()
         float bn[7], bw[7], ba[7], bv[7], bg[7], bq[7];
         vec2 bc[7], bp[7];
         float nB = nY;
+#ifndef LR_SUPER_LITE
         if (cable < 0.5 || show)
         {
             float sF = fcY / (TAU * 0.1325), sB = fcC / (TAU * 0.1325);   // sigmas in frequency (MHz)
@@ -215,6 +212,7 @@ void main()
                 nb++;
             }
         }
+#endif
         int nBi = int(nB);
 #ifdef LR_SUPER_LITE
         // the Gaussian weights by recurrence, w(u + 1) = w(u) exp(c (2u + 1)): no exp at every tap

@@ -507,6 +507,8 @@ Unlike lite, they give up a little of the picture (37–51 dB PSNR against the f
 - No `native` pass: run 3D cores at their native resolution (1×). At a higher internal resolution the
   picture still works, but the upscaled detail is read one row per console line instead of averaged.
 - As in lite: no phosphor afterglow, nothing around the tube.
+- RF and the TV show have no IF filter: the 1-pixel stripes of 512- and 640-wide modes get through, as on
+  composite.
 
 Even super lite simulates the whole chain, so it stays well above shaders that only draw scanlines and a
 mask: on the same GPU and frame at 960×720, crt-guest-advanced-fastest takes about 0.12 ms and crt-royale

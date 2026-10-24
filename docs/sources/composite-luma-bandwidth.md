@@ -255,9 +255,9 @@ Other measurements:
 - **Cost**, the whole frame on the M4 Pro at 1440x1080 (it varies about 20% from run to run):
   - full and lite, old-tv-rf and tv-show-broadcast: about +1.0 ms. Full: 2.24 → 3.25 ms and 2.90 → 3.97;
     lite 0.97 → 1.97 and 1.23 → 2.29.
-  - super lite: a shorter form (bands cut at 2 sigma, bands under 0.03 left out), 0.79 → 0.97 ms and
-    0.94 → 1.30. The full form would cost 1.13 and 1.42. The shorter form differs from the full one by at most
-    2.6-4.1/255 (RMS 1.0-1.6) and leaves 512-wide stripes at 0.002-0.013.
+  - super lite: left out, so it stays as fast as before (its RF and TV show still pass 512-wide stripes). A
+    shorter form (bands cut at 2 sigma, bands under 0.03 left out) cost 0.79 → 0.97 ms and 0.94 → 1.30 and
+    was dropped: super lite is for slow computers and comes first for speed.
   - composite and the other cables: unchanged.
 
 ### NES and SNES: Luma trap in the console 0 (`tools/make_presets.py`, systems/)
@@ -284,8 +284,7 @@ The rainbow on 256-wide dither is stronger than before.
 
 - `decode.inc`:
   - fcY, notch, fcC, the luma filter `(1 + sh) G(s1) - sh G(s2)` and the trap; the RGB path's 6.5 MHz;
-  - the IF filter on RF and the TV show (`IF_NTSC`, `IF_PAL`, the bands in the luma loop; `IF_SIGMAS` and `IF_MIN`
-    set the shorter form for super lite).
+  - the IF filter on RF and the TV show (`IF_NTSC`, `IF_PAL`, the bands in the luma loop; not in super lite).
 - `encode.inc` (`encYUV`): the console trap.
 - `tools/make_presets.py`: `LR_YTRAP` 0.75 in BASE (all TV presets and systems/), 0.6 in old-tv-rf, 0 in
   systems/nes and systems/snes.
