@@ -38,4 +38,10 @@ Once that is in a stable release, one preset set that switches by itself becomes
   crt-hdr.slang and present-hdr.slang, and no scale_type on the last pass.
 - From 2026-10-26, the same for the system presets: `hdr/systems/curved` and `hdr/systems/flat`. Each is
   its device's HDR preset with the system's settings (the loop after VARIANTS in `main`).
-- These are built from the same passes as `hdr/curved` and were not run in RetroArch on an HDR display.
+- Checked in RetroArch 1.22.2 on the author's Mac on 2026-10-26, with HDR off. Six of them (systems snes,
+  arcade-15khz, pc-98, x68000, mega-drive-genesis curved, playstation flat) load on Vulkan, Metal and glcore,
+  with every pass compiled and no errors. The last pass draws straight to the screen: Vulkan's log lists
+  float targets for passes 0-6 and none for pass 7.
+- With HDR off the picture is grey and flat, as the README says. Between drivers they match at 93-100 dB
+  (glcore) and about 61 dB (Metal). They were not run with HDR on, on an HDR display; they use the same
+  passes as `hdr/curved`.

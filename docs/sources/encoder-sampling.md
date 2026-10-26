@@ -118,12 +118,42 @@ v1.17.
 It is a fix rather than a realism feature, and it costs next to nothing, so super lite has it too
 (lite-presets.md).
 
+### In RetroArch
+
+RetroArch 1.22.2 on the author's Mac (M4 Pro), 2026-10-26, run with a temporary config. The content was
+448×224 test images in the built-in image viewer (the core reports "Geometry: 448x224"). Screenshots of the
+2688×1344 viewport.
+
+**Loading.** These presets load on Vulkan, Metal and glcore, with every pass compiled and no errors in the
+log:
+
+- consumer-tv-composite, trinitron-s-video, old-tv-rf;
+- systems/snes;
+- lite consumer-tv-composite;
+- super lite trinitron-s-video;
+- six hdr/systems presets.
+
+Between drivers, the SDR presets match at 82-100 dB. Super lite on Metal is 49.5 dB, as before this change
+(see lite-presets.md).
+
+**A moving line.** A 1-pixel white line on black, 144 lines tall, at 14 positions (two cycles of 7 pixels =
+20 samples), with the flat presets on Vulkan. The light around the line in the middle of the picture, as
+sum((value/255)^2.2), relative to its mean:
+
+| Preset | v1.17 | Now |
+|---|---|---|
+| trinitron-s-video | 1.05 at six positions of seven, 0.685 at the seventh: 37% swing | 0.989-1.010: 2.0% |
+| consumer-tv-composite | 1.08, and 0.497 at every seventh: 59% | 0.980-1.027: 4.7% |
+
+The rest is what the model above attributes to the beam's reads. consumer-tv-scart-rgb (1.4%) and
+systems/arcade-15khz (0.5%, 4 samples per pixel) are the same before and after, on the first 6 positions.
+
 ## Not done
 
-- Not run in RetroArch with ESP Galuda; the forum reporter can confirm it.
-- glslangValidator is not installed on the author's Mac, so the passes were compiled with the macOS GL
-  compiler only (slang passes turned into GLSL 4.10, and the Amiberry and 86Box ports as
-  tools/check_shaders.py assembles them).
+- Not run with ESP Galuda itself (no PGM set here); the forum reporter can confirm it.
+- glslangValidator is not installed on the author's Mac. The passes were compiled with the macOS GL
+  compiler (slang passes turned into GLSL 4.10, and the Amiberry and 86Box ports as tools/check_shaders.py
+  assembles them), and with RetroArch's own glslang when it loaded the presets above.
 
 ## Where the code uses it
 
