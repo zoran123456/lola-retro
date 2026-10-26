@@ -22,8 +22,11 @@ uniform float LR_CONSOLE;
 uniform float LR_NORM;
 uniform float LR_HIRES;
 uniform float LR_CABLE;
+uniform float LR_COMB;
 uniform float LR_YTRAP;
 uniform float LR_DBLEND;
+uniform float LR_DBLEND_AUTO;
+uniform float LR_SHARP;
 uniform float LR_DEMOD;
 uniform float LR_NOISE;
 uniform float LR_STEADY;
@@ -60,7 +63,8 @@ const float TAU = 6.28318530718;
 // The blend finds the part of the picture that alternates from one console pixel to
 // the next (a Gaussian window of 1.25 pixels with alternating signs, a narrow notch at
 // half the pixel clock) and takes it out. Flat areas, gradients and wider detail are
-// left alone. Weights for offsets 0..4 and the normalisation 4 * (w1 + w3):
+// left alone. How much: Dither blend, or with Dither blend auto what composite would take
+// (ditherBlend, below getTiming). Weights for offsets 0..4 and the normalisation 4 * (w1 + w3):
 const float DBW[5] = float[5](1.0, 0.726149, 0.278037, 0.056135, 0.005976);
 const float DBN = 3.129136;
 float dbSign(int k) { return (abs(k) & 1) == 1 ? -1.0 : 1.0; }
@@ -77,7 +81,7 @@ const float RF_ECHO_US = 0.8;    // delay in microseconds
 // TV, which decodes it like composite. Bandwidths in MHz at -3 dB.
 // Sony BVW-75P: Y 5.5 MHz -3 dB, colour 1.5 MHz -1.5 dB (about 2.1 MHz at -3 dB);
 // ITU-R BT.470: PAL U and V less than 3 dB down at 1.3 MHz. The transmitter's 5 MHz limit
-// (PAL B/G) is sharper than anything the TV's composite decoder passes, so it changes nothing.
+// (PAL B/G) and the receiving TV's IF filter: the same IF filter as on RF (IF_PAL, IF_NTSC in decode.inc).
 const float SHOW_TAPE_Y = 5.5;   // Betacam SP luma, one copy
 const float SHOW_TAPE_C = 2.1;   // Betacam SP colour difference signals, one copy
 const float SHOW_ENC_C = 1.3;    // the station's colour encoder (U and V)
@@ -93,6 +97,19 @@ vec2 rfEcho(float cable)
     return vec2(0.0, 1.0);
 }
 
+// The console's TV standard from the core's frame rate (OriginalFPS, docs/sources/core-frame-rates.md).
+// Every 50 Hz system reports 49.7 to 50.2 frames a second, every 60 Hz one 54.7 or more (the consoles
+// 59.2 to 60.1), so below 52 is PAL whatever the line count: most PAL SNES games and the Mega Drive's
+// 224-line mode have 224 lines. Exactly 60 says nothing: the image viewer, Play! (PAL games too) and
+// FinalBurn Neo's default report it whatever the content, and the cores that report it for NTSC
+// (PicoDrive, Mupen64Plus-Next) send at most 240 lines a field, which the line count takes as NTSC
+// too. Returns 1 PAL, 0 NTSC, -1 when the rate is missing (RetroArch before 1.20, the Amiberry and
+// 86Box ports) or says nothing: then the line count decides (getTiming).
+float rateStandard()
+{
+    return -1.0;
+}
+
 // TV show: how the programme's lines map to the console's. x: raster lines per console line
 // (2 for a 240p/288p console, whose line is drawn in both fields), y: console lines per
 // programme line (1 unless the studio's standards converter scaled the picture to the other
@@ -104,8 +121,11 @@ vec4 showLines(float pal, float interlace, float lines)
     bool prog = interlace < 0.5;
     float field = pal > 0.5 ? 288.0 : 240.0;
     float plines = prog ? field : 2.0 * field;
-    // the console's own standard by the same rule as TV standard auto (getTiming)
-    float own = ((prog ? lines : lines * 0.5) > 240.5 ? 288.0 : 240.0) * (prog ? 1.0 : 2.0);
+    // the console's own standard by the same rule as TV standard auto (getTiming): the frame rate
+    // where it says, otherwise the line count
+    float rs = rateStandard();
+    bool ownPal = rs < -0.5 ? (prog ? lines : lines * 0.5) > 240.5 : rs > 0.5;
+    float own = (ownPal ? 288.0 : 240.0) * (prog ? 1.0 : 2.0);
     float scv = own / plines;
     // (lines of an upscaled frame can be a hair off a whole number: a margin)
     return vec4(prog ? 2.0 : 1.0, scv, 0.5 * scv - 0.5 - floor(0.5 * (own - lines) + 0.01), plines);
@@ -210,8 +230,9 @@ vec3 x68Raster(float rows, float id)
 // 2 (the computer monitor, see getTiming) finds the native lines the same way.
 // More than one k can fit: 1440 lines are 240 lines at 6x and 288 at 5x, 1120 lines 224 at 5x
 // and 280 at 4x. A k that gives a standard height wins: 240 or 224 lines for NTSC, 288 or 256
-// for PAL (twice that in the 480i class), NTSC first unless TV standard is set to PAL. Without
-// one, the smallest k that fits (docs/sources/internal-resolution.md).
+// for PAL (twice that in the 480i class), NTSC first unless TV standard is set to PAL or, on auto,
+// the frame rate says PAL (rateStandard). Without one, the smallest k that fits
+// (docs/sources/internal-resolution.md).
 // Returns k (1 for native frames).
 float upscaleOf(vec2 orig)
 {
@@ -223,7 +244,8 @@ float upscaleOf(vec2 orig)
     bool scaled = (id < 0.5 && !il) ? orig.y > 576.0 : (tv && orig.y > base * 1.5);
     if (!scaled) return 1.0;
     // the standard heights, the preferred one first
-    vec4 hs = (LR_NORM > 1.5 ? vec4(288.0, 256.0, 240.0, 224.0) : vec4(240.0, 224.0, 288.0, 256.0))
+    bool palFirst = LR_NORM > 1.5 || (LR_NORM < 0.5 && rateStandard() > 0.5);
+    vec4 hs = (palFirst ? vec4(288.0, 256.0, 240.0, 224.0) : vec4(240.0, 224.0, 288.0, 256.0))
             * (il ? 2.0 : 1.0);
     float first = 0.0, best = 0.0, rank = 4.0;
     for (float k = 2.0; k <= 16.0; k += 1.0)
@@ -297,9 +319,12 @@ Timing getTiming(vec2 orig, uint frameCount)
     else if (LR_NORM > 0.5) t.pal = 0.0;
     else
     {
+        // the core's frame rate where it says (rateStandard), otherwise the line count: an Amiga
+        // NTSC frame with its overscan border has up to 243 lines, a PAL one 256 or more
         float lines = t.interlace > 0.5 ? nat.y * 0.5 : nat.y;
-        // an Amiga NTSC frame with its overscan border has up to 243 lines, a PAL one 256 or more
-        t.pal = (t.scan < 0.5 && lines > (amiga ? 249.5 : 240.5)) ? 1.0 : 0.0;
+        float rs = rateStandard();
+        bool palLines = lines > (amiga ? 249.5 : 240.5);
+        t.pal = (t.scan < 0.5 && (rs < -0.5 ? palLines : rs > 0.5)) ? 1.0 : 0.0;
     }
     // full source width: a wider (upscaled) line still takes the same time
     float base = mix(a.x, a.y, t.pal);
@@ -340,6 +365,47 @@ Timing getTiming(vec2 orig, uint frameCount)
     t.vsw = mod(fc * c, 2.0);
     t.vswStep = c;
     return t;
+}
+
+// The gain of a Gaussian low-pass with -3 dB at fc (MHz) at frequency f (MHz), the filters of the
+// encoder and decoder: exp(-2 pi^2 (0.1325 / fc)^2 f^2)
+float gaussGain(float f, float fc)
+{
+    float s = 0.1325 / fc;
+    return exp(-19.7392 * s * s * f * f);
+}
+
+// How much Dither blend takes out of a 1-pixel pattern (the part that alternates from one console
+// pixel to the next, at half the pixel clock): x of its luma, y of its colour. Dither blend sets both.
+// Dither blend auto takes what composite would have taken (docs/sources/dither-blend.md): the luma
+// share from the filters of the composite path at that frequency, the console's luma trap
+// (encode.inc) and the TV's luma filter with Sharpness and its trap or comb filter (decode.inc),
+// against the path in use (cable 3 RGB: the video amplifier; 2 S-Video: its luma filter), so the
+// pattern keeps the contrast it would have had on composite. Composite took all of its colour (the
+// chroma band is 0.6 to 0.8 MHz wide, the pattern 2.5 MHz or more), so the colour share is 1; S-Video's
+// own chroma filters already take it. Auto works on 15 kHz TV timings, the consoles and the Amiga,
+// which reached most players through composite; arcade boards (RGB monitors) and computer monitors
+// keep Dither blend as set. It follows the mode (a Mega Drive game switching between 256 and 320
+// pixels), the TV standard (t.pal) and the composite settings, and only knows 1-pixel patterns.
+vec2 ditherBlend(Timing t, float cable)
+{
+    float d = LR_DBLEND;
+    bool tv = t.scan < 0.5 && t.monitor < 0.5 && !(t.id > 7.5 && t.id < 8.5);
+    if (LR_DBLEND_AUTO < 0.5 || !tv) return vec2(d);
+    bool pal = t.pal > 0.5;
+    float fsc = pal ? 4.433619 : 3.579545;
+    float f = 0.5 * t.pclk / t.scale;                 // the pattern's frequency (MHz)
+    float sh = LR_SHARP * 1.4;
+    // composite as decode.inc decodes it: the comb filter (NTSC, lines half a cycle apart) or the trap
+    bool comb = LR_COMB > 0.5 && !pal && abs(t.lineFrac - 0.5) < 0.05;
+    float fcY = (comb || pal) ? 4.2 : 3.3, fcC = pal ? 0.8 : 0.6;
+    float yf = (1.0 + sh) * gaussGain(f, fcY) - sh * gaussGain(f, fcY / 2.5);
+    float hf = (1.0 + sh) * gaussGain(fsc, fcY) - sh * gaussGain(fsc, fcY / 2.5);
+    float notch = comb ? 0.0 : 0.92 * hf * (gaussGain(f - fsc, fcC) + gaussGain(f + fsc, fcC));
+    float comp = (1.0 - LR_YTRAP * (gaussGain(f - fsc, 0.5) + gaussGain(f + fsc, 0.5))) * (yf - notch);
+    float fcS = pal ? 5.0 : 4.6;
+    float own = cable > 2.5 ? gaussGain(f, 6.5) : (1.0 + sh) * gaussGain(f, fcS) - sh * gaussGain(f, fcS / 2.5);
+    return vec2(clamp(1.0 - comp / own, 0.0, 1.0), 1.0);
 }
 
 // Frame pixels and rows per console pixel and line, for effects sized on the glass (glow,
@@ -564,6 +630,30 @@ vec3 srcPix(float xs, float y, float k)
     return textureLod(Texture, vec2((floor(xs) + 0.5) * LR_SourceSize.z, (y + 0.5) * LR_SourceSize.w), 0.0).rgb;
 }
 
+// The luma of the sample that covers frame pixels a0 .. a0 + ppx. The console's signal is
+// continuous and its pixels are flat steps, so a sample holds their average over its span, not
+// the one pixel under its centre: at 1280 samples a 448-wide frame has 2.86 per pixel, and a
+// point read gave a pixel 2 or 3 of them by where it lay, so a 1-pixel detail moving along the
+// line went from 70% to 105% of its energy (docs/sources/encoder-sampling.md). At 256, 320 and
+// 640 wide (5, 4, 2 per pixel) and at 4 per pixel the spans end on pixel edges: the same as one read.
+// Up to 1.5 pixels per sample, up to three pixels; a wider frame was averaged across by the
+// native pass (vBox in native.slang), so one read of it is enough.
+float spanLuma(float a0, float ppx, float y, float k)
+{
+    vec3 w = vec3(0.299, 0.587, 0.114);
+    if (ppx >= 1.5) return dot(srcPix(a0 + 0.5 * ppx, y, k), w);
+    float a1 = a0 + ppx;
+    float j = floor(a0), s = 0.0;
+    for (int i = 0; i < 3; i++)
+    {
+        float o = min(a1, j + 1.0) - max(a0, j);   // the span's overlap with pixel j
+        if (o <= 0.0) break;
+        s += o * dot(srcPix(j + 0.5, y, k), w);
+        j += 1.0;
+    }
+    return s / ppx;
+}
+
 // Luma and the colour difference signals (Y, U, V) at sample position n (in samples), before
 // modulation. Nothing here depends on the frame's subcarrier phase (the luma trap takes out a
 // band around the subcarrier, the same in every frame), so the frames of No flicker share it.
@@ -576,8 +666,7 @@ vec3 encYUV(float n, float y, float fs, Timing T, float trap, float blend, bool 
 {
     float ppx = T.pclk / fs;                 // source pixels per sample
     float xs = (n + 0.5) * ppx;
-    vec3 c = srcPix(xs, y, T.scale);
-    float Y = dot(c, vec3(0.299, 0.587, 0.114));
+    float Y = spanLuma(n * ppx, ppx, y, T.scale);
     float copies = show ? LR_TAPE : 0.0;
 
     if (copies > 0.0)
@@ -603,17 +692,21 @@ vec3 encYUV(float n, float y, float fs, Timing T, float trap, float blend, bool 
     if (blend > 0.0)
     {
         // dither blend (S-Video): take the 1-pixel alternating part out of luma.
-        // Works on console pixels, so an upscaled frame blends the same way.
+        // Works on console pixels, so an upscaled frame blends the same way. A sample whose span
+        // reaches into the next console pixel (spanLuma) takes that pixel's part in the same share.
         float sp = T.scale;
-        float j0 = floor(xs / sp);
-        float y0 = dot(srcPix((j0 + 0.5) * sp, y, T.scale), vec3(0.299, 0.587, 0.114));
-        float a = 0.0;
-        for (int k = -4; k <= 4; k++)
+        float j0 = ppx < 1.5 ? floor(n * ppx / sp) : floor(xs / sp);
+        float w1 = ppx < 1.5 ? clamp(((n + 1.0) * ppx - (j0 + 1.0) * sp) / ppx, 0.0, 1.0) : 0.0;
+        float a0 = 0.0, a1 = 0.0, y0 = 0.0, y1 = 0.0, cs = 0.0;
+        for (int k = -4; k <= 5; k++)
         {
             float yk = dot(srcPix((j0 + float(k) + 0.5) * sp, y, T.scale), vec3(0.299, 0.587, 0.114));
-            a += DBW[abs(k)] * dbSign(k) * (yk - y0);
+            if (k <= 4) { a0 += DBW[abs(k)] * dbSign(k) * yk; cs += DBW[abs(k)] * dbSign(k); }
+            if (k >= -3) a1 += DBW[abs(k - 1)] * dbSign(k - 1) * yk;
+            if (k == 0) y0 = yk;
+            if (k == 1) y1 = yk;
         }
-        Y -= blend * a / DBN;
+        Y -= blend * mix(a0 - cs * y0, a1 - cs * y1, w1) / DBN;
     }
     float ph = phaseAt(n / fs, y, T);
 
@@ -636,22 +729,47 @@ vec3 encYUV(float n, float y, float fs, Timing T, float trap, float blend, bool 
 
     if (trap > 0.0)
     {
-        // demodulate the luma at the subcarrier over a long window (narrow band),
-        // then put that band back at this sample and subtract it
+        // demodulate the luma at the subcarrier over a long window (narrow band), then put that
+        // band back at this sample and subtract it. The console's pixels are flat steps, each read
+        // once, its share the window times the subcarrier integrated over the step (3 Gauss-Legendre
+        // points: the subcarrier turns up to 240 degrees across a pixel, and the window changes too).
+        // A step is one console pixel (k frame pixels in a frame upscaled k times, which repeats them).
+        // Taps at fixed time steps (0.25 sigma) read the nearest pixel and so the steps' edges: 1-pixel
+        // stripes came out 6% (256 wide) and 13% (320) weaker than the trap's filter gives and 8%
+        // (512) and 18% (640) stronger; one point per pixel with a sinc, 11% stronger at 256
+        // (docs/sources/composite-luma-bandwidth.md). Within 0.3% of the filter now.
         float sigT = 0.1325 / 0.5;
-        float da = TAU * T.fsc * 0.25 * sigT;    // subcarrier phase step between taps
-        vec2 rp = vec2(cos(da), sin(da));
-        vec2 e = vec2(cos(ph - 12.0 * da), sin(ph - 12.0 * da));
+        float sp = sigT * T.pclk;                          // sigma in frame pixels
+        float st = T.scale;
+        float wpx = TAU * T.fsc / T.pclk;                  // subcarrier phase per frame pixel
+        float gt = 0.38729833 * st;                        // the outer points, sqrt(3/5) / 2 of a step out
+        float j0 = floor((xs - 3.0 * sp) / st) * st, j1 = xs + 3.0 * sp;
+        float o = j0 + 0.5 * st - xs;                      // the first step's centre from this sample
+        float is2 = 1.0 / (sp * sp);
+        // the window and the subcarrier at a step's centre, carried to the next step and to the
+        // outer points by factors, so no exp, sin or cos per point
+        float g = exp(-0.5 * o * o * is2);                 // window at the centre
+        float gq = exp(-(o * st + 0.5 * st * st) * is2);   // g at the next centre / g
+        float gqq = exp(-st * st * is2);                   // how gq changes per step
+        float e = exp(-o * gt * is2);                      // outer points: g * eg * e and g * eg / e
+        float eq = exp(-st * gt * is2);
+        float eg = 0.625 * exp(-0.5 * gt * gt * is2);      // with their weight, 5/8 of the centre's
+        vec2 c = vec2(cos(ph + wpx * o), sin(ph + wpx * o));
+        vec2 cs = vec2(cos(wpx * st), sin(wpx * st)), cg = vec2(cos(wpx * gt), sin(wpx * gt));
         vec2 yb = vec2(0.0);
         float wt = 0.0;
-        for (int k = -12; k <= 12; k++)
+        for (int k = 0; k < 48; k++)
         {
-            float u = float(k) * 0.25;           // in sigmas, covers +-3
-            float w = exp(-0.5 * u * u);
-            float yy = dot(srcPix(xs + u * sigT * T.pclk, y, T.scale), vec3(0.299, 0.587, 0.114));
-            yb += w * yy * e.yx;
-            wt += w;
-            e = vec2(e.x * rp.x - e.y * rp.y, e.y * rp.x + e.x * rp.y);
+            float j = j0 + float(k) * st;
+            if (j > j1) break;
+            float yy = dot(srcPix(j + 0.5 * st, y, T.scale), vec3(0.299, 0.587, 0.114));
+            float gp = g * eg * e, gm = g * eg / e;
+            vec2 sum = g * c + gp * vec2(c.x * cg.x - c.y * cg.y, c.y * cg.x + c.x * cg.y)
+                             + gm * vec2(c.x * cg.x + c.y * cg.y, c.y * cg.x - c.x * cg.y);
+            yb += yy * sum.yx;                             // (sin, cos) of the subcarrier, weighted
+            wt += g + gp + gm;
+            g *= gq; gq *= gqq; e *= eq;
+            c = vec2(c.x * cs.x - c.y * cs.y, c.y * cs.x + c.x * cs.y);
         }
         Y -= trap * 2.0 * (yb.x * sin(ph) + yb.y * cos(ph)) / wt;
     }
@@ -703,7 +821,9 @@ void lr_main()
 
     // S-Video keeps luma apart, no trap needed; on a TV show the console's encoder is not used
     float trap = (cable < 1.5 && !show) ? LR_YTRAP : 0.0;
-    float blend = (cable > 1.5 && !show) ? LR_DBLEND : 0.0; // composite and RF blend dither by themselves
+    // composite and RF blend dither by themselves; on S-Video (RGB is not encoded) Dither blend takes
+    // luma's share, its chroma filters take the colour (ditherBlend)
+    float blend = (cable > 1.5 && !show) ? ditherBlend(T, cable).x : 0.0;
     vec3 a = encYUV(n, y, fs, T, trap, blend, show);
 
     // No flicker: the signal of up to three frames of the subcarrier cycle, one per channel

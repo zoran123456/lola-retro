@@ -23,7 +23,9 @@ uniform float LR_NORM;
 uniform float LR_HIRES;
 uniform float LR_CABLE;
 uniform float LR_COMB;
+uniform float LR_YTRAP;
 uniform float LR_DBLEND;
+uniform float LR_DBLEND_AUTO;
 uniform float LR_SHARP;
 uniform float LR_SAT;
 uniform float LR_TINT;
@@ -65,7 +67,8 @@ const float TAU = 6.28318530718;
 // The blend finds the part of the picture that alternates from one console pixel to
 // the next (a Gaussian window of 1.25 pixels with alternating signs, a narrow notch at
 // half the pixel clock) and takes it out. Flat areas, gradients and wider detail are
-// left alone. Weights for offsets 0..4 and the normalisation 4 * (w1 + w3):
+// left alone. How much: Dither blend, or with Dither blend auto what composite would take
+// (ditherBlend, below getTiming). Weights for offsets 0..4 and the normalisation 4 * (w1 + w3):
 const float DBW[5] = float[5](1.0, 0.726149, 0.278037, 0.056135, 0.005976);
 const float DBN = 3.129136;
 float dbSign(int k) { return (abs(k) & 1) == 1 ? -1.0 : 1.0; }
@@ -82,7 +85,7 @@ const float RF_ECHO_US = 0.8;    // delay in microseconds
 // TV, which decodes it like composite. Bandwidths in MHz at -3 dB.
 // Sony BVW-75P: Y 5.5 MHz -3 dB, colour 1.5 MHz -1.5 dB (about 2.1 MHz at -3 dB);
 // ITU-R BT.470: PAL U and V less than 3 dB down at 1.3 MHz. The transmitter's 5 MHz limit
-// (PAL B/G) is sharper than anything the TV's composite decoder passes, so it changes nothing.
+// (PAL B/G) and the receiving TV's IF filter: the same IF filter as on RF (IF_PAL, IF_NTSC in decode.inc).
 const float SHOW_TAPE_Y = 5.5;   // Betacam SP luma, one copy
 const float SHOW_TAPE_C = 2.1;   // Betacam SP colour difference signals, one copy
 const float SHOW_ENC_C = 1.3;    // the station's colour encoder (U and V)
@@ -98,6 +101,19 @@ vec2 rfEcho(float cable)
     return vec2(0.0, 1.0);
 }
 
+// The console's TV standard from the core's frame rate (OriginalFPS, docs/sources/core-frame-rates.md).
+// Every 50 Hz system reports 49.7 to 50.2 frames a second, every 60 Hz one 54.7 or more (the consoles
+// 59.2 to 60.1), so below 52 is PAL whatever the line count: most PAL SNES games and the Mega Drive's
+// 224-line mode have 224 lines. Exactly 60 says nothing: the image viewer, Play! (PAL games too) and
+// FinalBurn Neo's default report it whatever the content, and the cores that report it for NTSC
+// (PicoDrive, Mupen64Plus-Next) send at most 240 lines a field, which the line count takes as NTSC
+// too. Returns 1 PAL, 0 NTSC, -1 when the rate is missing (RetroArch before 1.20, the Amiberry and
+// 86Box ports) or says nothing: then the line count decides (getTiming).
+float rateStandard()
+{
+    return -1.0;
+}
+
 // TV show: how the programme's lines map to the console's. x: raster lines per console line
 // (2 for a 240p/288p console, whose line is drawn in both fields), y: console lines per
 // programme line (1 unless the studio's standards converter scaled the picture to the other
@@ -109,8 +125,11 @@ vec4 showLines(float pal, float interlace, float lines)
     bool prog = interlace < 0.5;
     float field = pal > 0.5 ? 288.0 : 240.0;
     float plines = prog ? field : 2.0 * field;
-    // the console's own standard by the same rule as TV standard auto (getTiming)
-    float own = ((prog ? lines : lines * 0.5) > 240.5 ? 288.0 : 240.0) * (prog ? 1.0 : 2.0);
+    // the console's own standard by the same rule as TV standard auto (getTiming): the frame rate
+    // where it says, otherwise the line count
+    float rs = rateStandard();
+    bool ownPal = rs < -0.5 ? (prog ? lines : lines * 0.5) > 240.5 : rs > 0.5;
+    float own = (ownPal ? 288.0 : 240.0) * (prog ? 1.0 : 2.0);
     float scv = own / plines;
     // (lines of an upscaled frame can be a hair off a whole number: a margin)
     return vec4(prog ? 2.0 : 1.0, scv, 0.5 * scv - 0.5 - floor(0.5 * (own - lines) + 0.01), plines);
@@ -215,8 +234,9 @@ vec3 x68Raster(float rows, float id)
 // 2 (the computer monitor, see getTiming) finds the native lines the same way.
 // More than one k can fit: 1440 lines are 240 lines at 6x and 288 at 5x, 1120 lines 224 at 5x
 // and 280 at 4x. A k that gives a standard height wins: 240 or 224 lines for NTSC, 288 or 256
-// for PAL (twice that in the 480i class), NTSC first unless TV standard is set to PAL. Without
-// one, the smallest k that fits (docs/sources/internal-resolution.md).
+// for PAL (twice that in the 480i class), NTSC first unless TV standard is set to PAL or, on auto,
+// the frame rate says PAL (rateStandard). Without one, the smallest k that fits
+// (docs/sources/internal-resolution.md).
 // Returns k (1 for native frames).
 float upscaleOf(vec2 orig)
 {
@@ -228,7 +248,8 @@ float upscaleOf(vec2 orig)
     bool scaled = (id < 0.5 && !il) ? orig.y > 576.0 : (tv && orig.y > base * 1.5);
     if (!scaled) return 1.0;
     // the standard heights, the preferred one first
-    vec4 hs = (LR_NORM > 1.5 ? vec4(288.0, 256.0, 240.0, 224.0) : vec4(240.0, 224.0, 288.0, 256.0))
+    bool palFirst = LR_NORM > 1.5 || (LR_NORM < 0.5 && rateStandard() > 0.5);
+    vec4 hs = (palFirst ? vec4(288.0, 256.0, 240.0, 224.0) : vec4(240.0, 224.0, 288.0, 256.0))
             * (il ? 2.0 : 1.0);
     float first = 0.0, best = 0.0, rank = 4.0;
     for (float k = 2.0; k <= 16.0; k += 1.0)
@@ -302,9 +323,12 @@ Timing getTiming(vec2 orig, uint frameCount)
     else if (LR_NORM > 0.5) t.pal = 0.0;
     else
     {
+        // the core's frame rate where it says (rateStandard), otherwise the line count: an Amiga
+        // NTSC frame with its overscan border has up to 243 lines, a PAL one 256 or more
         float lines = t.interlace > 0.5 ? nat.y * 0.5 : nat.y;
-        // an Amiga NTSC frame with its overscan border has up to 243 lines, a PAL one 256 or more
-        t.pal = (t.scan < 0.5 && lines > (amiga ? 249.5 : 240.5)) ? 1.0 : 0.0;
+        float rs = rateStandard();
+        bool palLines = lines > (amiga ? 249.5 : 240.5);
+        t.pal = (t.scan < 0.5 && (rs < -0.5 ? palLines : rs > 0.5)) ? 1.0 : 0.0;
     }
     // full source width: a wider (upscaled) line still takes the same time
     float base = mix(a.x, a.y, t.pal);
@@ -345,6 +369,47 @@ Timing getTiming(vec2 orig, uint frameCount)
     t.vsw = mod(fc * c, 2.0);
     t.vswStep = c;
     return t;
+}
+
+// The gain of a Gaussian low-pass with -3 dB at fc (MHz) at frequency f (MHz), the filters of the
+// encoder and decoder: exp(-2 pi^2 (0.1325 / fc)^2 f^2)
+float gaussGain(float f, float fc)
+{
+    float s = 0.1325 / fc;
+    return exp(-19.7392 * s * s * f * f);
+}
+
+// How much Dither blend takes out of a 1-pixel pattern (the part that alternates from one console
+// pixel to the next, at half the pixel clock): x of its luma, y of its colour. Dither blend sets both.
+// Dither blend auto takes what composite would have taken (docs/sources/dither-blend.md): the luma
+// share from the filters of the composite path at that frequency, the console's luma trap
+// (encode.inc) and the TV's luma filter with Sharpness and its trap or comb filter (decode.inc),
+// against the path in use (cable 3 RGB: the video amplifier; 2 S-Video: its luma filter), so the
+// pattern keeps the contrast it would have had on composite. Composite took all of its colour (the
+// chroma band is 0.6 to 0.8 MHz wide, the pattern 2.5 MHz or more), so the colour share is 1; S-Video's
+// own chroma filters already take it. Auto works on 15 kHz TV timings, the consoles and the Amiga,
+// which reached most players through composite; arcade boards (RGB monitors) and computer monitors
+// keep Dither blend as set. It follows the mode (a Mega Drive game switching between 256 and 320
+// pixels), the TV standard (t.pal) and the composite settings, and only knows 1-pixel patterns.
+vec2 ditherBlend(Timing t, float cable)
+{
+    float d = LR_DBLEND;
+    bool tv = t.scan < 0.5 && t.monitor < 0.5 && !(t.id > 7.5 && t.id < 8.5);
+    if (LR_DBLEND_AUTO < 0.5 || !tv) return vec2(d);
+    bool pal = t.pal > 0.5;
+    float fsc = pal ? 4.433619 : 3.579545;
+    float f = 0.5 * t.pclk / t.scale;                 // the pattern's frequency (MHz)
+    float sh = LR_SHARP * 1.4;
+    // composite as decode.inc decodes it: the comb filter (NTSC, lines half a cycle apart) or the trap
+    bool comb = LR_COMB > 0.5 && !pal && abs(t.lineFrac - 0.5) < 0.05;
+    float fcY = (comb || pal) ? 4.2 : 3.3, fcC = pal ? 0.8 : 0.6;
+    float yf = (1.0 + sh) * gaussGain(f, fcY) - sh * gaussGain(f, fcY / 2.5);
+    float hf = (1.0 + sh) * gaussGain(fsc, fcY) - sh * gaussGain(fsc, fcY / 2.5);
+    float notch = comb ? 0.0 : 0.92 * hf * (gaussGain(f - fsc, fcC) + gaussGain(f + fsc, fcC));
+    float comp = (1.0 - LR_YTRAP * (gaussGain(f - fsc, 0.5) + gaussGain(f + fsc, 0.5))) * (yf - notch);
+    float fcS = pal ? 5.0 : 4.6;
+    float own = cable > 2.5 ? gaussGain(f, 6.5) : (1.0 + sh) * gaussGain(f, fcS) - sh * gaussGain(f, fcS / 2.5);
+    return vec2(clamp(1.0 - comp / own, 0.0, 1.0), 1.0);
 }
 
 // Frame pixels and rows per console pixel and line, for effects sized on the glass (glow,
@@ -583,6 +648,21 @@ vec3 origPix(float xs, float y, float k)
 // Rotate a (cos, sin) pair by the angle whose (cos, sin) is r
 vec2 rotate(vec2 e, vec2 r) { return vec2(e.x * r.x - e.y * r.y, e.y * r.x + e.x * r.y); }
 
+// RF and the TV show come down an aerial, so the TV's IF filter limits the picture: about 4.2 MHz
+// in NTSC (M), 5 MHz in PAL B/G, with the sound carrier 4.5 / 5.5 MHz above the picture carrier
+// trapped. EPCOS M 3568 M (an NTSC IF filter): the sound carrier 43 dB down, 5.4 MHz 40-55 dB down;
+// 512-wide hi-res stripes do not get through (docs/sources/composite-luma-bandwidth.md). The cut is
+// written as 1 minus Gaussian bands, fitted to: flat to 3.3 MHz (NTSC) / 4.5 (PAL), -6 dB at about
+// 4.0 / 5.1, -12 dB at 4.2 / -15 at 5.32, under 30 dB from 4.5 / 5.5 MHz up. x: centre (MHz),
+// y: sigma (MHz), z: depth.
+const vec3 IF_NTSC[5] = vec3[5](vec3(4.444, 0.422, 0.5736), vec3(5.421, 0.813, 0.6596), vec3(7.190, 1.263, 0.6918),
+                                vec3(10.061, 1.789, 0.8616), vec3(13.686, 1.703, 0.8472));
+const vec3 IF_PAL[5] = vec3[5](vec3(5.495, 0.376, 0.6162), vec3(6.414, 0.721, 0.6375), vec3(7.995, 1.190, 0.6450),
+                               vec3(10.754, 1.827, 0.8841), vec3(13.976, 1.479, 0.7296));
+// How far each band reaches (sigmas) and the weakest band kept. Super lite leaves the IF filter out:
+// it is for slow computers, and the filter would cost it a fifth of its frame (docs/sources/lite-presets.md).
+const float IF_SIGMAS = 3.0, IF_MIN = 0.004;
+
 void lr_main()
 {
     Timing T = getTiming(LR_OriginalSize.xy, LR_FrameCount);
@@ -613,13 +693,15 @@ void lr_main()
         float sigPx = 0.1325 / (isPC(T.scan) ? 85.0 : 6.5) * T.pclk;
 
         // dither blend: the 1-pixel alternating part around the five console pixels
-        // the amplifier taps can reach, taken out of every tap below
-        float db = LR_DBLEND;
+        // the amplifier taps can reach, taken out of every tap below: db.x of its luma,
+        // db.y of the rest, its colour (the same share with Dither blend, see ditherBlend)
+        vec2 db = ditherBlend(T, cable);
+        bool blend = db.x > 0.0 || db.y > 0.0;
         float sp = T.scale;
         float j0 = floor(xs / sp);
         vec3 alt[5];
         for (int i = 0; i < 5; i++) alt[i] = vec3(0.0);
-        if (db > 0.0)
+        if (blend)
         {
             vec3 p[13];
             for (int i = 0; i < 13; i++) p[i] = origPix((j0 + float(i - 6) + 0.5) * sp, y, T.scale);
@@ -627,18 +709,26 @@ void lr_main()
             {
                 vec3 a = vec3(0.0);
                 for (int k = -4; k <= 4; k++) a += DBW[abs(k)] * dbSign(k) * (p[i + 4 + k] - p[i + 4]);
-                alt[i] = db * a / DBN;
+                float aY = dot(a, vec3(0.299, 0.587, 0.114));
+                alt[i] = (db.x * aY + db.y * (a - aY)) / DBN;
             }
         }
 
+        // the amplifier's Gaussian over the frame's pixels, which are flat steps: each pixel's share
+        // is the Gaussian's integral over it. Taps a sigma apart read the nearest pixel instead, and at
+        // 512 and 640 wide (sigma 0.22 and 0.27 pixels) they stepped over 1-pixel detail: such stripes
+        // came out up to a third weaker than 6.5 MHz passes (docs/sources/composite-luma-bandwidth.md)
+        float pa = floor(xs - 3.0 * sigPx), pb = floor(xs + 3.0 * sigPx);
         vec3 acc = vec3(0.0);
         float ws = 0.0;
-        for (int k = -3; k <= 3; k++)
+        for (int k = 0; k < 16; k++)
         {
-            float w = exp(-0.5 * float(k * k));
-            float xt = xs + float(k) * sigPx;
-            vec3 v = origPix(xt, y, T.scale);
-            if (db > 0.0) v -= alt[clamp(int(floor(xt / sp) - j0) + 2, 0, 4)];
+            float j = pa + float(k);
+            if (j > pb) break;
+            vec3 z = gaussCdf(vec3(j - xs, j + 1.0 - xs, 0.0) / sigPx);
+            float w = z.y - z.x;
+            vec3 v = origPix(j + 0.5, y, T.scale);
+            if (blend) v -= alt[clamp(int(floor((j + 0.5) / sp) - j0) + 2, 0, 4)];
             acc += w * v;
             ws += w;
         }
@@ -683,11 +773,55 @@ void lr_main()
         float c2 = -0.5 * mY * mY / (s2 * s2 * fs * fs);
         float a1 = 0.0, a2 = 0.0, w1s = 0.0, w2s = 0.0;
         int nYi = int(nY);
-        for (int k = -nYi; k <= nYi; k++)
+        // the luma gain at the subcarrier, for the trap
+        float hf = (1.0 + sh) * exp(-19.7392 * s1 * s1 * T.fsc * T.fsc) - sh * exp(-19.7392 * s2 * s2 * T.fsc * T.fsc);
+        bool trapY = !sv && !comb && notch > 0.0;
+
+        // RF and the TV show: the IF filter (IF_NTSC, IF_PAL) multiplies luma and the trap. Each band
+        // of the cut times the luma Gaussian, and the first two times the trap's band, is again a Gaussian
+        // band (centre, sigma and depth from the product of two Gaussians), so here it is taken out of luma
+        // as a cos-modulated Gaussian over its own taps: bn taps either side, bw its weight, the envelope by
+        // the recurrence below (bv, bg, bq) and the cosine by rotation (bp by bc). Bands too weak to matter
+        // after the product (luma Gaussian far down there) are left out.
+        int nb = 0;
+        float bn[7], bw[7], ba[7], bv[7], bg[7], bq[7];
+        vec2 bc[7], bp[7];
+        float nB = nY;
+        if (cable < 0.5 || show)
+        {
+            float sF = fcY / (TAU * 0.1325), sB = fcC / (TAU * 0.1325);   // sigmas in frequency (MHz)
+            for (int i = 0; i < 7; i++)
+            {
+                bool trapBand = i >= 5;
+                if (trapBand && !trapY) break;
+                vec3 c = pal ? IF_PAL[trapBand ? i - 5 : i] : IF_NTSC[trapBand ? i - 5 : i];
+                float s = trapBand ? sB : sF, f0 = trapBand ? T.fsc : 0.0;
+                float vs2 = s * s + c.y * c.y;
+                float mu = (c.x * s * s + f0 * c.y * c.y) / vs2;   // the product's centre (MHz)
+                float tau = sqrt(vs2) / (TAU * s * c.y);            // and its sigma in time (us)
+                float depth = c.z * exp(-0.5 * (c.x - f0) * (c.x - f0) / vs2);
+                float w = trapBand ? -2.0 * notch * hf * depth : 2.0 * (1.0 + sh) * depth;
+                if (abs(w) < IF_MIN) continue;
+                float bk = -0.5 * mY * mY / (tau * tau * fs * fs);  // the envelope's exponent per tap^2
+                float nt = min(ceil(IF_SIGMAS * tau * fs / mY), 40.0);
+                float da = TAU * mu * mY / fs, a0 = -nt * da;
+                a0 -= TAU * floor(a0 / TAU + 0.5);
+                bn[nb] = nt;
+                bw[nb] = w * sqrt(-2.0 * bk / TAU);                 // over the envelope's sum
+                bv[nb] = exp(bk * nt * nt);
+                bg[nb] = exp(bk * (1.0 - 2.0 * nt));
+                bq[nb] = exp(2.0 * bk);
+                bc[nb] = vec2(cos(da), sin(da));
+                bp[nb] = vec2(cos(a0), sin(a0));                    // (cos, sin) at the band's first tap
+                ba[nb] = 0.0;
+                nB = max(nB, nt);
+                nb++;
+            }
+        }
+        int nBi = int(nB);
+        for (int k = -nBi; k <= nBi; k++)
         {
             float u = float(k);
-            float w1 = exp(c1 * u * u);
-            float w2 = exp(c2 * u * u);
             float sp = n + u * mY;
             vec4 v = sig(sp, r);
             float s0 = (nf == 1 || sv) ? v.x : dot(v.xyz, lw);
@@ -696,9 +830,24 @@ void lr_main()
                 vec4 vq = sig(sp, r - sr);
                 s0 = 0.5 * (s0 + (nf == 1 ? vq.x : dot(vq.xyz, lw)));
             }
-            a1 += w1 * s0; a2 += w2 * s0; w1s += w1; w2s += w2;
+            if (abs(k) <= nYi)
+            {
+                float w1 = exp(c1 * u * u);
+                float w2 = exp(c2 * u * u);
+                a1 += w1 * s0; a2 += w2 * s0; w1s += w1; w2s += w2;
+            }
+            for (int i = 0; i < 7; i++)
+            {
+                if (i < nb && abs(u) <= bn[i])
+                {
+                    ba[i] += bv[i] * bp[i].x * s0;
+                    bv[i] *= bg[i]; bg[i] *= bq[i];
+                    bp[i] = rotate(bp[i], bc[i]);
+                }
+            }
         }
         Y = (1.0 + sh) * a1 / w1s - sh * a2 / w2s;
+        for (int i = 0; i < 7; i++) if (i < nb) Y -= bw[i] * ba[i];
 
         // chroma: demodulate against the subcarrier, then low-pass.
         // The subcarrier's (cos, sin) is rotated from tap to tap instead of recomputed.
@@ -761,8 +910,6 @@ void lr_main()
         }
         vec2 cs = 2.0 * vec2(acc.x, vs * acc.y);
         uv = cs / wcs;
-        float hf = (1.0 + sh) * exp(-19.7392 * s1 * s1 * T.fsc * T.fsc) - sh * exp(-19.7392 * s2 * s2 * T.fsc * T.fsc);
-        bool trapY = !sv && !comb && notch > 0.0;
         // the previous line has its own subcarrier phase: rotate its sums by the difference
         // (the same for every frame of the cycle)
         float dl = phaseAt(tn, y - st, T) - (ph0 - tint);
