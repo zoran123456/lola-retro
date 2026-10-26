@@ -2,7 +2,8 @@
 
 Why the shader uses the values it uses: the sources behind them, what was measured or worked out, what
 could not be found, and what the code does with it. One file per topic. These notes are not part of the
-release zips (those are made from `shaders/lola-retro`, `amiberry/lola-retro` and `86box/lola-retro`).
+release zips (those are made from `shaders/lola-retro`, `amiberry/lola-retro`, `86box/lola-retro` and
+`kodi/lola-retro`).
 
 Sources are trusted in the order CLAUDE.md gives: spec sheets, service manuals and measurements (emulator
 source code that follows the hardware counts as a measurement of it); then photos of a real screen (beam,
@@ -25,3 +26,4 @@ and marks what was worked out (inferred) rather than read.
 | [core-frame-rates.md](core-frame-rates.md) | the frame rate each core reports (`OriginalFPS`), measured and from source: which rates tell PAL and the console; TV standard auto (`rateStandard`, `getTiming`) |
 | [encoder-sampling.md](encoder-sampling.md) | the encoder's luma averaged over each sample's span (`spanLuma` in encode.inc): moving detail at widths that don't divide 1280 (forum post 46) |
 | [hdr-presets.md](hdr-presets.md) | why the HDR presets are separate presets (what RetroArch tells a shader about HDR); `hdr/systems` (forum post 49) |
+| [kodi.md](kodi.md) | the Kodi version (PR #15): the Kodi fixes it needs, the check on macOS, Kodi's gamma 2.4 → sRGB conversion of every game |

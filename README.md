@@ -221,8 +221,8 @@ sharper than any real tube and easy on the eyes for long work on the desktop (ea
 
 ## Kodi
 
-Every preset also comes as GLSL for the game player in [Kodi](https://kodi.tv) 22 and newer, on OpenGL and
-OpenGL ES (Linux, LibreELEC, Android, macOS): [`kodi/lola-retro`](kodi/lola-retro) has all fifteen, curved and
+Every preset also comes as GLSL for the game player in [Kodi](https://kodi.tv) 22.0 RC2 and newer, on OpenGL
+and OpenGL ES (tested on Linux, LibreELEC and macOS): [`kodi/lola-retro`](kodi/lola-retro) has all fifteen, curved and
 flat, on the same passes and with the same values as in RetroArch. Kodi lists the presets of its
 game.shader.presets add-on, so they go into that add-on's list; how, and the settings, are in its
 [README](kodi/lola-retro/README.md).
@@ -327,6 +327,7 @@ Measured on synthetic patterns:
 | `shaders/lola-retro/` | The RetroArch shader pack (slang): one preset per system in `systems/`, and 15 presets by device, each in a `curved/` and a `flat/` version, plus the same for HDR displays in `hdr/` and for weak GPUs in `lite/` and `super-lite/`. Details in its [README](shaders/lola-retro/README.md). |
 | `amiberry/lola-retro/` | The Amiga 1084S preset converted to GLSL for Amiberry. Details in its [README](amiberry/lola-retro/README.md). |
 | `86box/lola-retro/` | The PC monitor presets converted to GLSL for 86Box. Details in its [README](86box/lola-retro/README.md). |
+| `kodi/lola-retro/` | Every preset converted to GLSL for Kodi's game player. Details in its [README](kodi/lola-retro/README.md). |
 | `unity/lola-retro/` | The Unity package: every pass converted to HLSL, with all presets. Details in its [README](unity/lola-retro/README.md). |
 | `unity/test-project/` | A small Unity project that shows the package's Demo, and makes it. Details in its [README](unity/test-project/README.md). |
 | `unity/asset-store/` | The Unity Asset Store listing: description, upload steps and pictures, and the project the Asset Store version is uploaded from. |
@@ -339,7 +340,7 @@ Measured on synthetic patterns:
 
 ```
 python3 tools/make_presets.py     # regenerate the systems/, curved/, flat/ and hdr/ .slangp files from one table
-python3 tools/make_glsl.py        # regenerate the Amiberry and 86Box versions (amiberry/, 86box/) from the slang passes
+python3 tools/make_glsl.py        # regenerate the Amiberry, 86Box and Kodi versions (amiberry/, 86box/, kodi/) from the slang passes
 python3 tools/make_unity.py       # regenerate the Unity package's passes and tables (unity/) from the slang passes (glslang, spirv-cross)
 python3 tools/check_shaders.py    # compile every pass (slang, GLSL and Unity's HLSL) with glslangValidator
 tools/render-preview.sh PRESET IMAGE OUT.png [glcore|vulkan]   # Linux: render a frame in headless RetroArch

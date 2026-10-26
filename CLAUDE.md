@@ -33,13 +33,13 @@
 - Talk to the author in Croatian; texts for users (GitHub issues, Reddit, the libretro forum) in English.
 - Write down what research finds, so it can be explained later why a value is used: `docs/sources/`, one note
   per topic, with the sources, what was worked out, what was not found and where the code uses it.
-- Presets, the Amiberry and 86Box ports and the Unity package are generated: change the slang passes and
+- Presets, the Amiberry, 86Box and Kodi ports and the Unity package are generated: change the slang passes and
   `tools/make_presets.py`, then run `tools/make_presets.py` and `tools/make_glsl.py`. `tools/check_shaders.py`
   compiles every pass (needs glslangValidator).
 - Unity (`unity/`) is separate and on hold: don't regenerate it unless asked, and then with the author's
   toolchain (an old spirv-cross rewrites all of `LolaRetro.shader`). `tools/make_unity.py` must still know
   every parameter of `common.inc`, or it stops.
-- Releases: three zips, each one `lola-retro/` folder, from `git archive` of `shaders/lola-retro`,
-  `amiberry/lola-retro` and `86box/lola-retro`: `lola-retro-vX.zip`, `lola-retro-amiberry-vX.zip`,
-  `lola-retro-86box-vX.zip`. The Unity package has its own numbers (1.12.0 exists), so RetroArch went
-  from v1.11.2 to v1.13.
+- Releases: four zips, each one `lola-retro/` folder, from `git archive` of `shaders/lola-retro`,
+  `amiberry/lola-retro`, `86box/lola-retro` and `kodi/lola-retro`: `lola-retro-vX.zip`,
+  `lola-retro-amiberry-vX.zip`, `lola-retro-86box-vX.zip`, `lola-retro-kodi-vX.zip`. The Unity package has its
+  own numbers (1.12.0 exists), so RetroArch went from v1.11.2 to v1.13.

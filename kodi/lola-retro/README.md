@@ -10,9 +10,13 @@ and square corners), as in RetroArch.
 Kodi's video filter menu lists the presets of the **game.shader.presets** add-on, so Lola Retro goes into
 that add-on:
 
-1. Kodi 22 or newer, on a system that runs games with OpenGL or OpenGL ES (Linux, LibreELEC, Android,
-   macOS). On Windows Kodi uses Direct3D, which this version can't run.
+1. Kodi 22.0 RC2 or newer (RC1 doesn't have the fixes these presets need), on a system that runs games with
+   OpenGL or OpenGL ES; tested on Linux, LibreELEC and macOS. On Windows Kodi uses Direct3D, which this
+   version can't run.
 2. Copy this `lola-retro` folder into the add-on's `resources/glsl` folder, next to the libretro shaders.
+   On macOS the add-on is inside Kodi.app (`Contents/Resources/Kodi/addons/game.shader.presets`): copy that
+   whole folder to `~/Library/Application Support/Kodi/addons/` first and change the copy. Kodi then uses
+   the copy, and Kodi.app stays as it was signed.
 3. Add the presets you want to the add-on's list: `resources/ShaderPresetsGLSLP_GLES.xml` on OpenGL ES
    (LibreELEC, Android, Raspberry Pi), `resources/ShaderPresetsGLSLP.xml` on OpenGL. One entry per preset:
 
@@ -46,6 +50,10 @@ To change one, edit its value there, or copy the preset under a new name and lis
 - No phosphor afterglow: Kodi has no feedback textures. A still picture is the same; moving objects leave
   no faint trail.
 - No HDR, lite or per-system presets yet.
+- On macOS (the only system where this was checked) Kodi re-encodes every game's picture as if it were
+  gamma 2.4, into sRGB, with any video filter, Nearest neighbour too. Dark and middle tones come out darker
+  than in RetroArch (a grey of 107 at 99, a dark blue's 33 at 21). Apart from that the presets give the
+  same picture as in RetroArch.
 
 ## For developers
 
