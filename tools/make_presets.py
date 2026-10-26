@@ -412,6 +412,12 @@ def main():
             if change:
                 passes = change(passes)
             write(folder, name, passes, {**BASE, **over, **variant})
+    # the system presets in HDR (forum, StargazingDog): their device's HDR preset with the system's settings
+    for folder, variant in (("hdr/systems/curved", HDR), ("hdr/systems/flat", {**FLAT, **HDR})):
+        for name, (device, over) in SYSTEMS.items():
+            passes = hdr_passes(with_native_pass(PRESET_PASSES.get(device, PASSES)))
+            write(folder, name, passes.replace("../../shaders/", "../../../shaders/"),
+                  {**BASE, **PRESETS[device], **over, **variant})
     for folder, variant in (("lite/curved", {}), ("lite/flat", FLAT)):
         for name, over in PRESETS.items():
             values = {**BASE, **over, **variant}

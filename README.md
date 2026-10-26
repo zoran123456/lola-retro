@@ -49,7 +49,7 @@ little rainbow, just as it did on a living-room TV. On RGB you see the stripes t
    On Windows use Vulkan, or glcore: with D3D11 or D3D12 a full preset takes about 25 seconds to load every time
    a game starts (on a laptop with Intel graphics; Vulkan 3 to 7 seconds, glcore 8 to 13), see
    [Windows](shaders/lola-retro/README.md#windows).
-4. HDR display? Use the same presets from `lola-retro/hdr/curved`; setup is in [HDR](shaders/lola-retro/README.md#hdr).
+4. HDR display? Use the same presets from `lola-retro/hdr/systems/curved`; setup is in [HDR](shaders/lola-retro/README.md#hdr).
 5. Older phone, handheld or weak GPU? Use the same presets from `lola-retro/lite/systems/curved`: about twice as
    fast, the same picture, see [Lite presets](shaders/lola-retro/README.md#lite-presets). Still too slow?
    `lola-retro/super-lite/systems/curved` is about three times as fast, with small compromises, see

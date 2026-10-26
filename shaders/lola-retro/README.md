@@ -22,7 +22,7 @@ They guess the console from the frame size, which works for most games, but syst
 console pixel, so the signal stays right and the extra detail only makes edges smoother.
 A few cases need one setting, see [RECOMMENDED-CORES.md](RECOMMENDED-CORES.md).
 
-On an HDR display, use the same presets from `lola-retro/hdr/curved` instead, see [HDR](#hdr).
+On an HDR display, use the same presets from `lola-retro/hdr/systems/curved` instead, see [HDR](#hdr).
 On a weak GPU (older phones, handhelds, old integrated graphics), use them from `lola-retro/lite/systems/curved`,
 see [Lite presets](#lite-presets); if that is still too slow, from `lola-retro/super-lite/systems/curved`
 (see [Super lite presets](#super-lite-presets)).
@@ -45,8 +45,8 @@ see [Lite presets](#lite-presets); if that is still too slow, from `lola-retro/s
 | `arcade-15khz` | 15 kHz arcade (CPS1/2, Neo Geo MVS, most 80s and 90s boards) | Amiga 1084S | 8 |
 | `amiga` | Amiga | Amiga 1084S | 6 |
 | `dos-pc` | DOS and Windows 9x | PC Monitor (VGA) | 7 |
-| `pc-98` | NEC PC-98 (640×400) | PC Monitor (VGA): 400 sharp lines on a computer monitor, as on the PC-98's own (for HDR use `hdr/curved/pc-monitor-vga`) | 7 |
-| `x68000` | Sharp X68000 (px68k) | X68000 monitor (Sharp CZ-600D): 15 kHz games with gaps between the lines, 31 kHz games and the 768×512 prompt without (for HDR use `hdr/curved/x68000-monitor`) | 10 (11, see [X68000 monitor](#x68000-monitor)) |
+| `pc-98` | NEC PC-98 (640×400) | PC Monitor (VGA): 400 sharp lines on a computer monitor, as on the PC-98's own | 7 |
+| `x68000` | Sharp X68000 (px68k) | X68000 monitor (Sharp CZ-600D): 15 kHz games with gaps between the lines, 31 kHz games and the 768×512 prompt without | 10 (11, see [X68000 monitor](#x68000-monitor)) |
 
 PlayStation and N64 stay on auto: their native 480i games (Tekken 3) and a 2× upscaled 240-line game both
 send 480 lines, and only you know which one it is. Auto reads 480 lines as 480i
@@ -78,7 +78,7 @@ The device folders have the same 15 presets; `systems/curved` and `systems/flat`
 | `systems/curved/`, `systems/flat/` | One preset per system, curved or flat (see [Systems](#systems)). |
 | `curved/` | The glass bulges like a real tube, with rounded corners. The picture on it stays nearly rectangular, as on a well adjusted set (see **Raster bend**). |
 | `flat/` | Same presets, flat screen and square corners. Pick this if curvature bothers you. |
-| `hdr/curved/`, `hdr/flat/` | The same presets for HDR displays, see [HDR](#hdr). |
+| `hdr/curved/`, `hdr/flat/`, `hdr/systems/curved/`, `hdr/systems/flat/` | The same presets for HDR displays, see [HDR](#hdr). |
 | `lite/curved/`, `lite/flat/`, `lite/systems/curved/`, `lite/systems/flat/` | The same presets for weak GPUs, see [Lite presets](#lite-presets). |
 | `super-lite/curved/`, `super-lite/flat/`, `super-lite/systems/curved/`, `super-lite/systems/flat/` | The same presets for very weak GPUs, with compromises, see [Super lite presets](#super-lite-presets). |
 
@@ -430,7 +430,8 @@ dots the extra brightness instead, and the average stays at the paper white leve
 2. Turn HDR on for the display in the system: on Windows **Settings → System → Display → Use HDR**,
    on macOS **System Settings → Displays → High Dynamic Range**.
 3. In RetroArch: **Settings → Video → HDR → Enable HDR**.
-4. Load a preset from `lola-retro/hdr/curved` or `lola-retro/hdr/flat`.
+4. Load a preset from `lola-retro/hdr/systems/curved` or `lola-retro/hdr/systems/flat` (one per system, as in
+   [Systems](#systems)), or by device from `lola-retro/hdr/curved` or `lola-retro/hdr/flat`.
 5. In **Quick Menu → Shaders → Shader Parameters**, at the bottom:
    - **HDR: display peak (nits)**: the peak brightness of your display. About 400 for DisplayHDR 400
      monitors, 600–1000 for OLED TVs.
@@ -440,6 +441,8 @@ dots the extra brightness instead, and the average stays at the paper white leve
 The shader writes HDR10 itself, so RetroArch's own HDR settings (paper white, peak, contrast) do not change
 these presets. Use them only with HDR switched on, otherwise the picture looks grey and flat. The normal
 presets keep working with HDR on as well (RetroArch converts them), they just don't use the extra brightness.
+They are separate presets because RetroArch 1.22 doesn't tell a shader whether HDR is on, and the last pass's
+output format, which is fixed in the file, decides whether the picture goes out as HDR10.
 
 With a bright display (peak about 4× paper white or more) you can raise **Mask strength** towards 1.0:
 the gaps between the phosphors go dark like on a real tube and the picture stays as bright.
