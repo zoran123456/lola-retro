@@ -528,8 +528,10 @@ filtering, so it needs a reasonably modern GPU. Integrated graphics from the las
 The first pass (`native`) averages the rows of each console line of an upscaled frame once, and in the TV
 presets the encoder and decoder work at a fixed 1280 samples per line (about 27 MHz, 4 per pixel of a
 320-wide console), so a PS1 core at 4× or 8× internal resolution costs about as much as at 1×. (Before,
-the encoder's work grew with the square of the internal resolution: 16 times as much at 4×.) The PC and
-Amiga presets keep 4 samples per frame pixel, because their beam reads every pixel exactly.
+the encoder's work grew with the square of the internal resolution: 16 times as much at 4×.)
+Each sample holds the average of the pixels it covers, as the console's continuous signal would, so at
+widths that don't divide 1280 (384 for CPS1/2, 448 for IGS PGM, 512 for SNES hires) moving detail keeps its
+brightness. The PC and Amiga presets keep 4 samples per frame pixel, because their beam reads every pixel exactly.
 The beam pass works out each source line once on an 8192-pixel-wide texture, so the GPU has to support
 textures that wide (every desktop GPU of the last decade does). The beam pass is the largest of the chain;
 the [lite presets](#lite-presets) make it as wide as the screen.

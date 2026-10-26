@@ -23,3 +23,4 @@ and marks what was worked out (inferred) rather than read.
 | [composite-luma-bandwidth.md](composite-luma-bandwidth.md) | composite luma at 5-6 MHz: the consoles' encoder networks, TV decoders, the IF filter of RF and the TV show (`IF_NTSC`, `IF_PAL`), Luma trap in the console 0 for the NES and SNES |
 | [windows-test.md](windows-test.md) | the presets on Windows (D3D11, D3D12, Vulkan, glcore), an Intel laptop: pictures, loading times, speed |
 | [core-frame-rates.md](core-frame-rates.md) | the frame rate each core reports (`OriginalFPS`), measured and from source: which rates tell PAL and the console; TV standard auto (`rateStandard`, `getTiming`) |
+| [encoder-sampling.md](encoder-sampling.md) | the encoder's luma averaged over each sample's span (`spanLuma` in encode.inc): moving detail at widths that don't divide 1280 (forum post 46) |

@@ -133,6 +133,10 @@ shoulder 0.01, the rest (geometry, setup, writing the screen) 0.07; 0.34 in all.
 | the decoder's Gaussian weights by recurrence instead of an exp at every tap | none on the M4 | the same | yes: on the software renderer the PS1 decoder took 4.8 -> 3.1 s (SNES unchanged), so it should help GPUs where exp is slow |
 | RF and TV show (2026-10-24): no IF filter ([composite-luma-bandwidth.md](composite-luma-bandwidth.md)). A shorter form of it (bands cut at 2 sigma, the ones weaker than 0.03 left out) was tried and dropped: super lite comes first for speed | the filter would cost old-tv-rf 0.79 -> 0.97 ms, tv-show-broadcast 0.94 -> 1.30 (whole frame) | 512- and 640-wide stripes get through on RF and the TV show, as before the filter | yes (left out) |
 
+Not a compromise, but also in super lite: from 2026-10-26 the encoder's luma is the average over each sample's
+span instead of one read at its centre ([encoder-sampling.md](encoder-sampling.md)). It costs the encode pass
+0.003-0.005 ms (1280x224), and without it moving detail at 384, 448 and 512 wide shimmers.
+
 On the software renderer (one CPU core, 640x480, one frame), super lite before and after the last two:
 SNES 10.7 -> 8.7 s (decoder 7.3 -> 5.2 s), PlayStation 640x448i 16.4 -> 8.9 s (decoder 10.6 -> 3.1 s). The
 decoder's own Timing (getTiming at every pixel) costs 0.3 s of the SNES's 5.2 s there and nothing measurable

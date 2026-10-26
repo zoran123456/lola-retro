@@ -697,6 +697,30 @@ vec3 srcPix(float xs, float y, float k)
     return textureLod(Source, vec2((floor(xs) + 0.5) * LR_SourceSize.z, (y + 0.5) * LR_SourceSize.w), 0.0).rgb;
 }
 
+// The luma of the sample that covers frame pixels a0 .. a0 + ppx. The console's signal is
+// continuous and its pixels are flat steps, so a sample holds their average over its span, not
+// the one pixel under its centre: at 1280 samples a 448-wide frame has 2.86 per pixel, and a
+// point read gave a pixel 2 or 3 of them by where it lay, so a 1-pixel detail moving along the
+// line went from 70% to 105% of its energy (docs/sources/encoder-sampling.md). At 256, 320 and
+// 640 wide (5, 4, 2 per pixel) and at 4 per pixel the spans end on pixel edges: the same as one read.
+// Up to 1.5 pixels per sample, up to three pixels; a wider frame was averaged across by the
+// native pass (vBox in native.slang), so one read of it is enough.
+float spanLuma(float a0, float ppx, float y, float k)
+{
+    vec3 w = vec3(0.299, 0.587, 0.114);
+    if (ppx >= 1.5) return dot(srcPix(a0 + 0.5 * ppx, y, k), w);
+    float a1 = a0 + ppx;
+    float j = floor(a0), s = 0.0;
+    for (int i = 0; i < 3; i++)
+    {
+        float o = min(a1, j + 1.0) - max(a0, j);   // the span's overlap with pixel j
+        if (o <= 0.0) break;
+        s += o * dot(srcPix(j + 0.5, y, k), w);
+        j += 1.0;
+    }
+    return s / ppx;
+}
+
 // Luma and the colour difference signals (Y, U, V) at sample position n (in samples), before
 // modulation. Nothing here depends on the frame's subcarrier phase (the luma trap takes out a
 // band around the subcarrier, the same in every frame), so the frames of No flicker share it.
@@ -709,8 +733,7 @@ vec3 encYUV(float n, float y, float fs, Timing T, float trap, float blend, bool 
 {
     float ppx = T.pclk / fs;                 // source pixels per sample
     float xs = (n + 0.5) * ppx;
-    vec3 c = srcPix(xs, y, T.scale);
-    float Y = dot(c, vec3(0.299, 0.587, 0.114));
+    float Y = spanLuma(n * ppx, ppx, y, T.scale);
     float copies = show ? LR_TAPE : 0.0;
 
     if (copies > 0.0)
@@ -736,17 +759,21 @@ vec3 encYUV(float n, float y, float fs, Timing T, float trap, float blend, bool 
     if (blend > 0.0)
     {
         // dither blend (S-Video): take the 1-pixel alternating part out of luma.
-        // Works on console pixels, so an upscaled frame blends the same way.
+        // Works on console pixels, so an upscaled frame blends the same way. A sample whose span
+        // reaches into the next console pixel (spanLuma) takes that pixel's part in the same share.
         float sp = T.scale;
-        float j0 = floor(xs / sp);
-        float y0 = dot(srcPix((j0 + 0.5) * sp, y, T.scale), vec3(0.299, 0.587, 0.114));
-        float a = 0.0;
-        for (int k = -4; k <= 4; k++)
+        float j0 = ppx < 1.5 ? floor(n * ppx / sp) : floor(xs / sp);
+        float w1 = ppx < 1.5 ? clamp(((n + 1.0) * ppx - (j0 + 1.0) * sp) / ppx, 0.0, 1.0) : 0.0;
+        float a0 = 0.0, a1 = 0.0, y0 = 0.0, y1 = 0.0, cs = 0.0;
+        for (int k = -4; k <= 5; k++)
         {
             float yk = dot(srcPix((j0 + float(k) + 0.5) * sp, y, T.scale), vec3(0.299, 0.587, 0.114));
-            a += DBW[abs(k)] * dbSign(k) * (yk - y0);
+            if (k <= 4) { a0 += DBW[abs(k)] * dbSign(k) * yk; cs += DBW[abs(k)] * dbSign(k); }
+            if (k >= -3) a1 += DBW[abs(k - 1)] * dbSign(k - 1) * yk;
+            if (k == 0) y0 = yk;
+            if (k == 1) y1 = yk;
         }
-        Y -= blend * a / DBN;
+        Y -= blend * mix(a0 - cs * y0, a1 - cs * y1, w1) / DBN;
     }
     float ph = phaseAt(n / fs, y, T);
 
