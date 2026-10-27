@@ -237,6 +237,25 @@ on the 8745H against the 8745HS (https://www.turbovs.com/review/amd-ryzen-7-8745
 from Low End Mac (https://lowendmac.com/2025/apple-silicon-m4-pro-chip-specs/) and EatYourBytes
 (https://www.eatyourbytes.com/applecpu-detail/apple-m4-pro-16-core-gpu/).
 
+### Raspberry Pi 4 (issue #13, Cereal-Killa, 2026-10-22)
+
+Batocera, RetroArch on the Pi 4's Vulkan driver: super lite runs, "still super slow". No frame rate was
+given.
+
+## No GLSL version for handhelds (issue #13, decided 2026-10-27)
+
+Issue #13 asked for lite and super lite as GLSL, for RetroArch's `gl` driver on handhelds without good
+Vulkan (Anbernic and Trimui on the H700, the Pi 4). Not done, because it wouldn't reach full speed:
+
+- It would be the same passes, so about the same GPU time as on Vulkan. The Pi 4 already runs super lite
+  on Vulkan, and it is too slow there.
+- Super lite on a Mali-G52 MC2 at 720p is estimated at 20-40 ms (above), and a 60 Hz frame is 16.7 ms
+  for the shader and the core together. The H700's Mali-G31 MP2 and the Pi 4's GPU are slower.
+- Several times lighter would mean dropping the signal chain, which is what Lola simulates. Shaders made
+  for these GPUs (zfast-crt, crt-pi, crt-geom-mini, all in RetroArch's GLSL set) do that job.
+
+To look again: a frame rate for super lite on such a device (Vulkan), close to full speed.
+
 ## Where the code uses it
 
 - `tools/make_presets.py`, `lite_passes`: the beam (and show-lines) pass at the viewport's width, x2 for
