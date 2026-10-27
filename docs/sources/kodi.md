@@ -59,11 +59,22 @@ With that conversion applied to RetroArch's picture, Kodi (3413 → 2880) matche
 up from 28.6. That is about what resampling alone leaves: RetroArch's 2880 → 1792 against its own 1792 is
 37.5 dB. So the port gives RetroArch's picture, and Kodi darkens it as it darkens every game.
 
+**It happens inside Kodi.** The Kodi numbers come from Kodi's own screenshot (Input.ExecuteAction
+"screenshot"). On macOS that reads Kodi's back buffer: `CScreenshotSurfaceGL::Read` does `glReadBuffer(GL_BACK)`
+and glReadPixels (`xbmc/rendering/gl/ScreenshotSurfaceGL.cpp`, registered in `xbmc/windowing/osx/WinSystemOSX.mm`,
+Piers branch, read 2026-10-27). So the values are already lower in Kodi's frame, before macOS composites the
+window and matches its colours to the display.
+
+**What the Kodi side says.** sunlollyking (PR #15, 2026-10-26): it isn't intended. RetroPlayer draws the
+core's pixels with no gamma step; he thought macOS colour-matches Kodi's window, since Kodi doesn't set a
+colour space on it. The screenshot rules that out as the whole cause. He advised leaving the presets as they
+are, because undoing it in the last pass would make them wrong on Linux and LibreELEC, so the port does not
+undo it.
+
 ## Not found or not checked
 
-- Whether Kodi does this on other systems too, and whether it is meant (BT.1886 taken for games), was not
-  found. The port does not undo it; that would be a choice for the author, and a question for the Kodi
-  RetroPlayer developers.
+- Where in Kodi's GL path the conversion happens, and whether Kodi does it on other systems too, was not
+  found.
 - Not checked here: OpenGL ES (no glslang on the Mac), Linux and LibreELEC (the PR author tested those), and
   Android.
 
