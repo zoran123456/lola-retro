@@ -50,10 +50,8 @@ To change one, edit its value there, or copy the preset under a new name and lis
 - No phosphor afterglow: Kodi has no feedback textures. A still picture is the same; moving objects leave
   no faint trail.
 - No HDR, lite or per-system presets yet.
-- On macOS (the only system where this was checked) Kodi re-encodes every game's picture as if it were
-  gamma 2.4, into sRGB, with any video filter, Nearest neighbour too. Dark and middle tones come out darker
-  than in RetroArch (a grey of 107 at 99, a dark blue's 33 at 21). Apart from that the presets give the
-  same picture as in RetroArch.
+
+Apart from these, the presets give the same picture as in RetroArch.
 
 ## For developers
 

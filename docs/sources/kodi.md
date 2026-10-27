@@ -39,42 +39,39 @@ full screen.
 - Kodi: Snes9x, full screen, the picture 3413×2560.
 - RetroArch 1.22.2: bsnes 2014, Vulkan, 2880×2160 and 1792×1344.
 
-The two match in geometry, blur, colour and mask, but Kodi is darker: the mean of the picture is 77.6 / 100.8
-/ 135.0 against 86.4 / 109.2 / 140.7. The resolution doesn't explain it: RetroArch at 2880 brought down to
-1792 has the same mean as at 1792 (86.2 / 109.0 / 140.6). Afterglow doesn't either: RetroArch's lite preset
-and LR_PERSIST 0 give the same mean.
+The two match in geometry, blur, colour and mask. Kodi's picture brought down to 1792 has a mean of
+86.4 / 108.4 / 140.7 against RetroArch's 86.4 / 109.2 / 140.7, and the two are 34.2 dB apart. That is about
+what resampling alone leaves: RetroArch's 2880 → 1792 against its own 1792 is 37.5 dB. The Kodi pictures are
+Kodi's own screenshots (Input.ExecuteAction "screenshot"), which on macOS read Kodi's back buffer
+(`CScreenshotSurfaceGL::Read`, `xbmc/rendering/gl/ScreenshotSurfaceGL.cpp`).
 
-## Kodi's gamma conversion
+## Kodi's screenshots are tagged BT.709
 
-Kodi does the same without a shader:
+A first comparison, on 2026-10-26, showed Kodi darker: a mean of 77.6 / 100.8 / 135.0, with every palette
+colour lower by exactly `sRGB_encode(v^2.4)` (Sonic's 33 → 21, 99 → 90, 206 → 203; the 240p Test Suite's
+grey 107 → 99), with Nearest neighbour too. That was put down to Kodi, and v1.18's Kodi README said so. On
+2026-10-27 it turned out to be the measurement:
 
-- With Nearest neighbour, the menu's grey (107 in RetroArch) comes out as 99 / 97 / 99 in Kodi.
-- With the same core in both (Genesis Plus GX, Sonic's title screen), every palette colour goes down in Kodi:
-  33 → 21, 99 → 90, 138 → 132, 140 → 134, 173 → 168, 206 → 203, 239 → 238.
+- Kodi tags a screenshot with what it takes the display to show. For SDR wider than 1024 that is BT.709
+  (`GetOutputColorMetadata`, `xbmc/rendering/capture/CaptureMetadata.cpp`), and FFmpeg writes it into the PNG
+  (`xbmc/guilib/FFmpegImage.cpp`): a cICP chunk of 1/1/0/1 (BT.709 primaries and transfer, RGB, full range),
+  cHRM (BT.709) and gAMA (1/2.2). RetroArch's screenshots have no colour chunks.
+- The pictures were read with macOS's `sips`, converted to BMP. ImageIO takes the tag as
+  `kCGColorSpaceITUR_709` and converts the picture to sRGB, which is the gamma 2.4 → sRGB curve. Untagged
+  PNGs are not converted.
+- Read with no colour management (the bytes of CGImage's data provider), Kodi's pixels are the core's: the
+  grey is 107 / 105 / 107, and Sonic's palette keeps 33, 99, 138, 173, 206 and 239.
 
-That is exactly `sRGB_encode(v^2.4)`, which predicts 20.8, 90.4, 131.6, 133.7, 168.5, 203.3 and 238.1. In other
-words, Kodi takes the game's picture as gamma 2.4 (BT.1886) and converts it to the sRGB curve.
+sunlollyking (PR #15, 2026-10-27) found the same on LibreELEC (GLES): Kodi's own screenshot of FCEUmm with
+Nearest neighbour has exactly the core's colours. So Kodi draws the core's pixels unchanged, on macOS too,
+and the port needs nothing for it.
 
-With that conversion applied to RetroArch's picture, Kodi (3413 → 2880) matches RetroArch at 2880 at 34.2 dB,
-up from 28.6. That is about what resampling alone leaves: RetroArch's 2880 → 1792 against its own 1792 is
-37.5 dB. So the port gives RetroArch's picture, and Kodi darkens it as it darkens every game.
-
-**It happens inside Kodi.** The Kodi numbers come from Kodi's own screenshot (Input.ExecuteAction
-"screenshot"). On macOS that reads Kodi's back buffer: `CScreenshotSurfaceGL::Read` does `glReadBuffer(GL_BACK)`
-and glReadPixels (`xbmc/rendering/gl/ScreenshotSurfaceGL.cpp`, registered in `xbmc/windowing/osx/WinSystemOSX.mm`,
-Piers branch, read 2026-10-27). So the values are already lower in Kodi's frame, before macOS composites the
-window and matches its colours to the display.
-
-**What the Kodi side says.** sunlollyking (PR #15, 2026-10-26): it isn't intended. RetroPlayer draws the
-core's pixels with no gamma step; he thought macOS colour-matches Kodi's window, since Kodi doesn't set a
-colour space on it. The screenshot rules that out as the whole cause. He advised leaving the presets as they
-are, because undoing it in the last pass would make them wrong on Linux and LibreELEC, so the port does not
-undo it.
+To measure Kodi's screenshots, read their stored bytes, or drop the tag first. Tools that honour cICP
+(ImageIO, so `sips` and Preview) convert them.
 
 ## Not found or not checked
 
-- Where in Kodi's GL path the conversion happens, and whether Kodi does it on other systems too, was not
-  found.
+- The screen itself was not measured, only the two programs' own frames.
 - Not checked here: OpenGL ES (no glslang on the Mac), Linux and LibreELEC (the PR author tested those), and
   Android.
 
