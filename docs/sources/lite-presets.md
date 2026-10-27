@@ -193,7 +193,15 @@ cost in ms (full / lite / super lite): consumer-tv-composite 6.58 / 3.42 / 2.48,
 
 Minisforum mini PC, Ryzen 7 8745H with Radeon 780M graphics, SteamOS, RetroArch 1.22.2 (RetroDeck),
 SwanStation, a 4K TV, Lola Retro v1.15. GPU usage with `flat/trinitron-s-video` (full / lite / super lite):
-**70% / 60% / 45%**. The internal resolution of this test was not given (the same report tried 1x to 6x).
+**70% / 60% / 45%**. The reporter's second comment gave the internal resolution (3x) and the GPU clock:
+
+| `flat/trinitron-s-video` | GPU usage | GPU clock |
+|---|---|---|
+| full | 70% | between 800 and 1200 MHz |
+| lite | 60% | 800 MHz, constant |
+| super lite | 45% | 800 MHz, constant |
+
+`flat/tv-show-broadcast` also showed 70%, with the clock going above 1200 MHz.
 
 The hardware, from published figures (not measured here):
 
@@ -215,8 +223,13 @@ How to read the percentages (inferred):
 - At 4K the CRT pass (once per screen pixel, the same in lite) is a larger part of the frame than at the
   1080p measured here, so lite gains less: 70% to 60% fits that. On the M4 Pro at 1440x1080 the same preset
   takes 1.62 / 0.87 / 0.54 ms.
-- Comparable numbers would need the GPU clock next to each percentage (SteamOS's performance overlay shows
-  it), or the clock fixed, and the internal resolution.
+- With the clocks, usage times clock gives the work per frame, if it scales with the clock (inferred).
+  Full is 70% at about 1000 MHz (800-1200), lite 60% at 800 and super lite 45% at 800. So lite does about
+  0.69 of full's work (0.57-0.86 over the clock's range), and super lite about 0.51 (0.43-0.64). On the
+  M4 Pro at 1440x1080 the shares are 0.54 and 0.33. The smaller gain at 4K fits the CRT pass's larger share,
+  and the totals hold SwanStation's 3x rendering, the same in all three.
+- The same 70% for tv-show-broadcast at a higher clock shows why usage alone misleads: the GPU raises
+  its clock for the heavier preset and stays as busy.
 
 Sources: AMD Ryzen 7 8745HS product page (https://www.amd.com/zh-tw/products/processors/laptop/ryzen/8000-series/amd-ryzen-7-8745hs.html);
 Notebookcheck, Ryzen 7 8745HS (https://www.notebookcheck.com/AMD-Ryzen-7-8745HS-Prozessor-Benchmarks-und-Specs.1007249.0.html);
