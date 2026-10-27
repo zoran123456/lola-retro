@@ -237,10 +237,23 @@ on the 8745H against the 8745HS (https://www.turbovs.com/review/amd-ryzen-7-8745
 from Low End Mac (https://lowendmac.com/2025/apple-silicon-m4-pro-chip-specs/) and EatYourBytes
 (https://www.eatyourbytes.com/applecpu-detail/apple-m4-pro-16-core-gpu/).
 
-### Raspberry Pi 4 (issue #13, Cereal-Killa, 2026-10-22)
+### Raspberry Pi 4 (issue #13, Cereal-Killa, 2026-10-22 and 10-27)
 
-Batocera, RetroArch on the Pi 4's Vulkan driver: super lite runs, "still super slow". No frame rate was
-given.
+Batocera 43 (Wayland, sway), RetroArch 1.22.2, FCEUmm with 1942, a 1920x1080 TV at 60 Hz with a NES bezel
+overlay. RetroArch on Vulkan: V3DV in Mesa 23.2.1 (Vulkan 1.2) on the V3D 4.2. From his photos of RetroArch's
+FPS counter, in the same scene:
+
+| Shader | FPS |
+|---|---|
+| zfast-crt | 61.33 |
+| `super-lite/systems/flat/nes` | 3.74 |
+
+3.74 fps is about 267 ms a frame, 16 times the 16.7 ms of a 60 Hz frame. On the M4 Pro, super lite's
+consumer-tv-composite (the NES preset's device) takes 0.62 ms at 1440x1080, so the Pi 4 is roughly 400
+times slower on it (inferred; the size of the game picture inside the overlay was not given).
+
+His vulkaninfo also gives maxImageDimension2D = 4096. The full presets' beam pass is 8192 wide, so they
+can't run on the Pi 4 at all. Super lite's passes fit: 1280 at most, and the beam as wide as the viewport.
 
 ## No GLSL version for handhelds (issue #13, decided 2026-10-27)
 
@@ -248,7 +261,7 @@ Issue #13 asked for lite and super lite as GLSL, for RetroArch's `gl` driver on 
 Vulkan (Anbernic and Trimui on the H700, the Pi 4). Not done, because it wouldn't reach full speed:
 
 - It would be the same passes, so about the same GPU time as on Vulkan. The Pi 4 already runs super lite
-  on Vulkan, and it is too slow there.
+  on Vulkan, and it is too slow there: 3.74 fps, measured after the decision (above).
 - Super lite on a Mali-G52 MC2 at 720p is estimated at 20-40 ms (above), and a 60 Hz frame is 16.7 ms
   for the shader and the core together. The H700's Mali-G31 MP2 and the Pi 4's GPU are slower.
 - Several times lighter would mean dropping the signal chain, which is what Lola simulates. Shaders made
