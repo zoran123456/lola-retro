@@ -96,6 +96,8 @@ freed none of it. He is writing a Kodi fix that frees a renderer once its previe
 | full, picture 1440x1080 | 63-65 | 61-63 | 45-48 |
 | lite (if ported), preview 480x360 | 12.5-12.7 | 11.7-11.8 | 5.5-7.4 |
 | lite (if ported), picture 1440x1080 | 16-20 | 15-18 | 10 |
+| super lite (in the port since 2026-10-28), preview 480x360 | 7.9-9.8 | 7.4-9.1 | 3.4-5.6 |
+| super lite, picture 1440x1080 | 11.5-13.4 | 10.7-12.5 | 5.5-7.8 |
 
 The 12 Lola entries on one page come to about 0.5 GB (NES, previews), on top of the renderers of the
 pages before. The Shield TV (2019) has 2 GB of RAM, the Pro 3 GB, shared by the system, the GPU and
@@ -114,15 +116,46 @@ Sources: garbear and sunlollyking on https://github.com/kodi-game/game.shader.pr
 the X1+ from CNX Software (https://www.cnx-software.com/2019/10/29/nvidia-launches-upgraded-shield-tv-with-tegra-x1-plus-processor/);
 the X1's GPU clock and bandwidth from published figures (Wikipedia, Tegra), not checked against NVIDIA.
 
+## Super lite for Kodi (2026-10-28)
+
+Made after the Shield report, for devices like it: `super-lite/curved` and `super-lite/flat`, the same 15
+presets on RetroArch's super lite chains (`make_presets.super_lite_passes`): 30 presets, with the same chains
+and values as RetroArch's `super-lite/` (compared file by file, apart from the shader paths).
+
+**A converter bug found on the way.** The super lite passes set their own defines (`crt-super-lite.slang`:
+`LR_PRESENT`, `LR_SUPER_LITE`, `LR_NO_BACKDROP`; the encoder, decoder and beam `LR_SUPER_LITE`), but
+`make_glsl.py`'s `resolve_ifdefs` decided the `#ifdef` branches from the target's defines alone. The first
+build compiled and ran, but without the super lite code and without the output encoding of `LR_PRESENT`:
+Kodi's picture had a mean of 29 / 44 / 82 (stored bytes, whole screen) against 77 / 96 / 125 for the full
+preset. `resolve_ifdefs` now also counts the `#define` and `#undef` lines of the active branches. The
+Amiberry, 86Box and full Kodi passes come out byte for byte the same, as none of their files sets a define.
+
+**Checks.**
+
+- Compiled and linked with macOS's OpenGL 4.1 core compiler (`#version 330`, as Kodi assembles a pass), and
+  with WebKit's WebGL2 compiler (ANGLE, GLSL ES 3.00, with Kodi's GLES precisions). ANGLE applies the ES
+  rules NVIDIA applied to the xBR pass on the Shield: a probe with `float x = (1 - u);` fails there with
+  "wrong operand types". All 13 Kodi passes compile in both. GLSL ES 3.10, which Kodi asks for on GLES, was
+  not available; 3.00 is stricter in what it offers, the same in conversions.
+- Kodi on macOS (the build above), Snes9x with the 240p Test Suite's menu: Consumer TV (composite), TV show
+  broadcast, PC monitor (VGA) flat, Amiga 1084S and Trinitron (S-Video) from a "Lola Retro super lite"
+  folder in the menu, no shader errors in kodi.log.
+- Against RetroArch 1.22.2's super lite (bsnes 2014, Vulkan, 1792x1344), consumer-tv-composite: Kodi's
+  picture brought down to 1792 has a mean of 86.3 / 108.3 / 140.7 against 86.3 / 109.1 / 140.7, 34.2 dB
+  apart, the same as the full presets (above). Against RetroArch's full preset it is 33.3 dB; RetroArch's
+  super lite and full are 41.4 dB apart.
+
 ## Not found or not checked
 
 - The screen itself was not measured, only the two programs' own frames.
-- The Shield's frame rate with one Lola preset in a game: nobody has measured it yet.
+- The Shield's frame rate with one Lola preset in a game, full or super lite: nobody has measured it yet.
+- Super lite on a real GLES device.
 - Not checked here: OpenGL ES (no glslang on the Mac), Linux and LibreELEC (the PR author tested those), and
   Android.
 
 ## Where the code uses it
 
-- `tools/make_glsl.py` (`write_kodi`, `kodi_samplers`, `kodi_chain`): makes `kodi/lola-retro`.
+- `tools/make_glsl.py` (`write_kodi`, `kodi_samplers`, `kodi_chain`, `kodi_super_lite_chain`,
+  `resolve_ifdefs`): makes `kodi/lola-retro`.
 - `tools/check_shaders.py` (`kodi_source`): compiles the passes as Kodi assembles them.
 - The README in `kodi/lola-retro`, which is written by hand: install, macOS, differences.

@@ -5,6 +5,14 @@ player: the RetroArch shader converted to GLSL, on the same passes and with the 
 gives the picture it gives in RetroArch. All fifteen come curved (`curved/`) and flat (`flat/`, no curvature
 and square corners), as in RetroArch.
 
+The super lite presets (`super-lite/curved/`, `super-lite/flat/`) are the same fifteen for weaker devices,
+such as the NVIDIA Shield and other Android boxes. They take about a third of the GPU time of the full
+presets and much less memory: Kodi keeps every pass's float target at 32 bits a channel, and the full
+presets' beam pass is 8192 pixels wide whatever the screen (for a NES game, about 44 MB per preset in the
+Video Filter dialog's previews and 65 MB at 1440×1080; super lite about 9 and 13). They give up a little of
+the picture; what exactly is in the
+[shader pack's README](https://github.com/zoran123456/lola-retro/blob/main/shaders/lola-retro/README.md#super-lite-presets).
+
 ## Install
 
 Kodi's video filter menu lists the presets of the **game.shader.presets** add-on, so Lola Retro goes into
@@ -28,6 +36,8 @@ that add-on:
    </preset>
    ```
 
+   A super lite preset's path is `glsl/lola-retro/super-lite/curved/...` or `.../super-lite/flat/...`.
+
 4. Restart Kodi. In a game, the menu's **Settings → Video Filter** shows them in the folder you gave them.
 
 An update of the add-on replaces its lists, so the entries have to be added again afterwards.
@@ -49,7 +59,7 @@ To change one, edit its value there, or copy the preset under a new name and lis
 
 - No phosphor afterglow: Kodi has no feedback textures. A still picture is the same; moving objects leave
   no faint trail.
-- No HDR, lite or per-system presets yet.
+- No HDR, lite or per-system presets yet (super lite is there).
 
 Apart from these, the presets give the same picture as in RetroArch.
 
