@@ -36,13 +36,13 @@ Systems that are not in that list use the id whose timing matches theirs.
 | Mega CD / Sega CD | Genesis Plus GX | Consumer TV (Composite) | auto (2) | Same as Mega Drive. |
 | 32X | PicoDrive | Consumer TV (Composite) | auto (2) | Same as Mega Drive. |
 | PC Engine / TurboGrafx-16, PC Engine CD | Beetle PCE, Beetle PCE Fast | Consumer TV (Composite) | **4** (on RetroArch before 1.20 also TV standard 1, NTSC) | Its subcarrier rhythm (227½ cycles per line) matches the PlayStation's. With more than 240 lines shown, an older RetroArch reads the frame as PAL by its line count; from 1.20 the core's frame rate (59.82) says NTSC. |
-| Neo Geo (AES/MVS) | FinalBurn Neo | Consumer TV (SCART RGB), or Amiga 1084S for the arcade look | auto | RGB arcade hardware, so composite timing does not matter. |
+| Neo Geo (AES/MVS) | FinalBurn Neo | Consumer TV (SCART RGB), or `systems/arcade-15khz` for the arcade look | auto | RGB arcade hardware, so composite timing does not matter. |
 
 ## Arcade
 
 | Hardware | Core | Preset | Console timing | Settings |
 |---|---|---|---|---|
-| 15 kHz arcade (CPS1/2, Neo Geo MVS, most 80s and 90s boards) | FinalBurn Neo, MAME | Amiga 1084S | auto, or 8 | Arcade monitors were 15 kHz RGB. Vertical games: RetroArch rotates the whole picture, including scanlines and mask, the same as a monitor turned on its side. The 1084S shows the whole picture with a black border; raise Overscan to fill the screen like an arcade monitor. |
+| 15 kHz arcade (CPS1/2, Neo Geo MVS, most 80s and 90s boards) | FinalBurn Neo, MAME | `systems/arcade-15khz` (the Amiga 1084S set up for the arcade) | 8 (set by the preset) | Arcade monitors were 15 kHz RGB. Vertical games: RetroArch rotates the whole picture, including scanlines and mask, the same as a monitor turned on its side. The preset shows the whole game with a thin black border, as the arcade manuals said to set the monitor up, and the game's lines fill the height whether it has 224, 240 or 256 of them (Picture height 1). |
 | Medium-res 24 kHz (Sega Model 1/2 at 496×384) | MAME | CRT Projector (deluxe cabinets) or Studio Monitor (RGB) | auto (9) | |
 
 ## 32-bit and 64-bit

@@ -83,6 +83,8 @@ Decided with the author on 2026-10-22, from the notes above and [x68000-video.md
   figure), so 8 rasters at the top and bottom fall outside it, as a taller window would on the monitor.
   Picture height 1 (`LR_FILL`) fits the rows into the height, a zoom of the same tube as on the TV raster
   (added 2026-10-22 after a comment on issue #9; before, Picture height only applied to the TV raster).
+  Since 2026-10-28 it is the monitor's height control instead of a zoom: the 256 rasters move closer together and the spot
+  keeps its size in mm, so they merge a little more than 240 do ([arcade-monitors.md](arcade-monitors.md)).
   Checked in RetroArch (Metal, flat x68000-monitor, Overscan 0): a 256-row frame with its top 8 rows red
   and bottom 8 green, timing 11 and Picture height 1, showed only a sliver of each before and both bands in
   full after, at the same height as on timing 10; timing 10, Picture height 0 and 240-row frames gave

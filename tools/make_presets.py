@@ -216,7 +216,15 @@ SYSTEMS = {
     "playstation-2": ("trinitron-s-video", dict(LR_CONSOLE=5)),
     "gamecube": ("trinitron-s-video", dict(LR_CONSOLE=5)),
     "dreamcast": ("consumer-tv-composite", dict(LR_CONSOLE=5)),
-    "arcade-15khz": ("amiga-1084s", dict(LR_CONSOLE=8)),
+    # Arcade: the 1084S tube, set up as the arcade manuals say, not as Amiga owners set it (Overscan 0.1
+    # hid the Amiga's border, and cut 4 lines off the top and bottom of a 224-line game). Sega's manuals:
+    # adjust the monitor so that the test mode's crosshatch, whose frame line is the edge of the picture,
+    # does not go beyond the screen. MAME's frame is that picture (the board's visible area, which MAME
+    # shows at 4:3), not a TV field, so its lines fill the height whatever their number (224 on CPS1,
+    # 256 on Irem M72), and the overscan keeps its corners just inside the rounded glass, 4:3 kept:
+    # about 5 mm of black at the middle of the sides and 4 mm at the top and bottom.
+    # docs/sources/arcade-monitors.md
+    "arcade-15khz": ("amiga-1084s", dict(LR_CONSOLE=8, LR_FILL=1, LR_OVERSCAN=0.055, LR_OVERSCAN_V=-0.095)),
     "amiga": ("amiga-1084s", dict(LR_CONSOLE=6)),
     # px68k: 15 kHz games with gaps, 31 kHz games (most of them) and the 768x512 prompt without
     "x68000": ("x68000-monitor", dict()),

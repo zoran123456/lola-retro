@@ -2647,7 +2647,9 @@ void lr_main()
         // the TV's field: 240 or 288 lines (480 or 576 interlaced); a frame with fewer lines leaves a
         // border, as on the real set. Picture height 1 lets the core's lines fill the height
         // instead, for cores that crop lines and set the aspect ratio from the lines they keep
-        // (the picture is then a zoom of the same tube: lines and beam keep their look).
+        // (on a TV the picture is then a zoom of the same tube: lines and beam keep their look).
+        // On a tube in mm it is the monitor's height control, as an arcade operator set it for the
+        // game: the lines move apart or together, and the spot keeps its size in mm.
         // The X68000's monitor too: its 15 kHz picture is 240 lines high, so a 256-line game on
         // Console timing 11 runs 8 lines past it at the top and bottom, unless the lines fill it.
         float visField = x68 ? vSignal.w : scan > 0.5 ? BH : (pal > 0.5 ? 288.0 : 240.0) * (interlace > 0.5 ? 2.0 : 1.0);
@@ -2688,11 +2690,12 @@ void lr_main()
         float convV = LR_CONV * 0.5 * (0.3 + 0.7 * c.y * abs(c.y));
         // spot height in lines: TV in line units; a tube in mm from its line pitch, so the same
         // spot covers more lines in 768-line modes than in 400-line ones, and NTSC lines (fewer,
-        // further apart) show more than PAL lines
+        // further apart) show more than PAL lines; with Picture height 1 the lines across the height
+        // are the core's (a 224-line arcade game shows a little more of the gaps than a 240-line one)
         vec2 sig = vec2(LR_SIG_LO, max(LR_SIG_LO, LR_SIG_HI)) * sgk;
         if (mm)
             sig = vec2(LR_MON_SPOT_LO, max(LR_MON_SPOT_LO, LR_MON_SPOT_HI))
-                * (FWHM_TO_SIGMA * monCornerGrowth(c) * visField / monScanMM().y);
+                * (FWHM_TO_SIGMA * monCornerGrowth(c) * visLines / monScanMM().y);
 
         // the band each line's light is averaged over (lineLight), in lines: Scanline smoothing
         // times one screen pixel's height. 0 takes the light at the pixel's centre, 1 averages it
