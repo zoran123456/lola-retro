@@ -69,9 +69,55 @@ and the port needs nothing for it.
 To measure Kodi's screenshots, read their stored bytes, or drop the tag first. Tools that honour cICP
 (ImageIO, so `sips` and Preview) convert them.
 
+## On the NVIDIA Shield (game.shader.presets PR #47, 2026-10-28)
+
+**Reported.** garbear tried PR #47 (six presets, curved and flat, 12 entries) on a Shield with GLES. All
+of them compiled and rendered (NVIDIA's GLSL ES compiler is strict: it rejected an xBR pass in the same
+add-on, not Lola). But scrolling onto the Lola Retro page of the Video Filter dialog took over a minute,
+and Android then killed Kodi for running out of memory. sunlollyking's diagnosis: the dialog keeps the
+renderer of every filter it has previewed, with all its framebuffers, until the game stops. Going
+through all 17 categories on his laptop took Kodi's GPU memory from 77 to 580 MB, and closing the dialog
+freed none of it. He is writing a Kodi fix that frees a renderer once its preview is off screen.
+
+**Why Lola tips it over (worked out from the presets and Kodi's code).**
+
+- Kodi gives every `float_framebuffer` pass a `GL_RGBA32F` texture, 16 bytes a pixel
+  (`xbmc/cores/RetroPlayer/shaders/gl/ShaderPresetGL.cpp` and `gles/ShaderPresetGLES.cpp`, Piers).
+  RetroArch's slang chains, where Lola is made and checked, use `R16G16B16A16_SFLOAT`, 8 bytes a pixel
+  (`gfx/drivers_shader/shader_vulkan.c`, `shader_gl3.c`, `slang_process.c`). So each Lola target takes
+  twice the memory, and twice the bandwidth, in Kodi.
+- The full presets' beam pass is 8192 wide whatever the picture's size, so a small preview still has an
+  8192 x 245 beam texture (NES): 31 MB in Kodi, about 70% of the preset's targets in a preview.
+- Kodi doesn't allocate the last pass, so the targets are passes 0-6:
+
+| Targets per preset, RGBA32F (MB) | NES 256x240 | SNES 256x224 | Game Boy 160x144 |
+|---|---|---|---|
+| full, preview 480x360 | 42-44 | 40-41 | 24-27 |
+| full, picture 1440x1080 | 63-65 | 61-63 | 45-48 |
+| lite (if ported), preview 480x360 | 12.5-12.7 | 11.7-11.8 | 5.5-7.4 |
+| lite (if ported), picture 1440x1080 | 16-20 | 15-18 | 10 |
+
+The 12 Lola entries on one page come to about 0.5 GB (NES, previews), on top of the renderers of the
+pages before. The Shield TV (2019) has 2 GB of RAM, the Pro 3 GB, shared by the system, the GPU and
+Kodi. With RGBA16F, as in RetroArch, the full presets would take half. The preview size (480x360) is an
+assumption; the beam texture doesn't depend on it.
+
+**Speed (worked out, not measured).** The Shield's Tegra X1 has 256 Maxwell cores at up to 1 GHz, about
+0.5 TFLOPS FP32, and 25.6 GB/s of memory bandwidth (the 2019 X1+ is about 25% faster). That is about a
+twelfth of the M4 Pro (6.5-6.9 TFLOPS, 273 GB/s). The full consumer-tv-composite at 1440x1080 takes 1.81
+ms on the M4 Pro with RGBA16F ([lite-presets.md](lite-presets.md)), so about 22 ms on the Shield, more
+with Kodi's RGBA32F, against 16.7 ms for a 60 Hz frame; lite (1.06 ms) about 13 ms, super lite (0.62 ms)
+about 7.5 ms. In the dialog every preview runs its own 8192-wide beam pass each frame (0.60 ms on the
+M4 Pro, so about 7 ms each on the Shield), which fits the minute it took to reach the page.
+
+Sources: garbear and sunlollyking on https://github.com/kodi-game/game.shader.presets/pull/47; RAM and
+the X1+ from CNX Software (https://www.cnx-software.com/2019/10/29/nvidia-launches-upgraded-shield-tv-with-tegra-x1-plus-processor/);
+the X1's GPU clock and bandwidth from published figures (Wikipedia, Tegra), not checked against NVIDIA.
+
 ## Not found or not checked
 
 - The screen itself was not measured, only the two programs' own frames.
+- The Shield's frame rate with one Lola preset in a game: nobody has measured it yet.
 - Not checked here: OpenGL ES (no glslang on the Mac), Linux and LibreELEC (the PR author tested those), and
   Android.
 

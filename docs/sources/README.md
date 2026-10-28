@@ -26,4 +26,4 @@ and marks what was worked out (inferred) rather than read.
 | [core-frame-rates.md](core-frame-rates.md) | the frame rate each core reports (`OriginalFPS`), measured and from source: which rates tell PAL and the console; TV standard auto (`rateStandard`, `getTiming`) |
 | [encoder-sampling.md](encoder-sampling.md) | the encoder's luma averaged over each sample's span (`spanLuma` in encode.inc): moving detail at widths that don't divide 1280 (forum post 46) |
 | [hdr-presets.md](hdr-presets.md) | why the HDR presets are separate presets (what RetroArch tells a shader about HDR); `hdr/systems` (forum post 49) |
-| [kodi.md](kodi.md) | the Kodi version (PR #15): the Kodi fixes it needs, the check on macOS, why its screenshots looked darker (tagged BT.709) |
+| [kodi.md](kodi.md) | the Kodi version (PR #15): the Kodi fixes it needs, the check on macOS, why its screenshots looked darker (tagged BT.709), why the Shield ran out of memory (RGBA32F, the 8192-wide beam) |
