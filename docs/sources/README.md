@@ -23,7 +23,7 @@ and marks what was worked out (inferred) rather than read.
 | [mask-moire.md](mask-moire.md) | the mask at the tube's size on 1080p: moiré, and the shoulder per mask point (`maskPoints`, the CRT pass) |
 | [composite-luma-bandwidth.md](composite-luma-bandwidth.md) | composite luma at 5-6 MHz: the consoles' encoder networks, TV decoders, the IF filter of RF and the TV show (`IF_NTSC`, `IF_PAL`), Luma trap in the console 0 for the NES and SNES |
 | [windows-test.md](windows-test.md) | the presets on Windows (D3D11, D3D12, Vulkan, glcore), an Intel laptop: pictures, loading times, speed |
-| [core-frame-rates.md](core-frame-rates.md) | the frame rate each core reports (`OriginalFPS`), measured and from source: which rates tell PAL and the console; TV standard auto (`rateStandard`, `getTiming`) |
+| [core-frame-rates.md](core-frame-rates.md) | the frame rate each core reports (`OriginalFPS`), measured and from source: which rates tell PAL and the console; TV standard auto (`rateStandard`, `getTiming`); Console timing auto for the 59.82 Hz consoles (`rateTiming4`, `autoConsole`; forum post 60) |
 | [encoder-sampling.md](encoder-sampling.md) | the encoder's luma averaged over each sample's span (`spanLuma` in encode.inc): moving detail at widths that don't divide 1280 (forum post 46) |
 | [hdr-presets.md](hdr-presets.md) | why the HDR presets are separate presets (what RetroArch tells a shader about HDR); `hdr/systems` (forum post 49) |
 | [arcade-monitors.md](arcade-monitors.md) | `systems/arcade-15khz`: the whole game on the glass, as arcade manuals said to set the monitor (Picture height 1, overscan); the spot in mm with Picture height 1 (`crt.inc`) |

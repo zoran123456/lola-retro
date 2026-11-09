@@ -59,8 +59,9 @@ console's own timing (4) by hand:
   Every frame over 300 lines is then the console's own 480i, drawn in two fields with the console's timing
   (960 lines are 480i at 2×).
 
-The `saturn` preset sets that: Console timing 4 and Frames over 300 lines 1. Auto would pick the Mega Drive
-timing for Beetle Saturn's 330×224 and 352×224 frames, Beetle Saturn has no upscaling, and Kronos and
+The `saturn` preset sets that: Console timing 4 and Frames over 300 lines 1. By the frame's size, auto would
+pick the Mega Drive timing for 330×224 and 352×224 frames (Beetle Saturn's frame rate names the console in
+RetroArch 1.20 and newer, Kronos's and YabaSanshiro's round 60 does not), Beetle Saturn has no upscaling, and Kronos and
 YabaSanshiro send native frames unless their resolution option is raised (then set Frames over 300 lines to 0).
 
 The presets are the device presets below with one or two values changed, so every parameter still works.
@@ -256,6 +257,14 @@ modes → PlayStation, 320×200, 640×350 or 640×400 → VGA (NTSC Amiga on the
 frames (360, 720 or 1440 wide with 287, 574, 242 or 484 lines) → Amiga, 336–400 lines → arcade 24 kHz,
 more than 300 lines → interlaced, more than 576 lines → upscaled (more than 720 with **Frames over 300 lines** 1 or 2; see Internal resolution). Set the id by hand when the guess is wrong (for example a Mega Drive game
 in 240-line PAL mode), or use a preset from `systems/`.
+
+In RetroArch 1.20 and newer the core's frame rate comes first where it names the console's line and frame.
+59.82 frames a second is 263 lines of 227½ cycles, so timing 4 whatever the frame's size (PlayStation on
+SwanStation and Beetle PSX, PC Engine, Saturn on Beetle Saturn): a PlayStation game with 224 lines
+(Final Fantasy VIII, 320×224) is not taken for a Mega Drive, and a 256-wide one not for a SNES. A PAL
+PlayStation (49.75 or 49.76) is timing 4 too, also with 256 lines, which would otherwise be an Amiga's.
+Where the rate says nothing, the size alone decides, as above: cores that report a round 60 or 50 (PCSX
+ReARMed), older RetroArch, and the Amiberry, 86Box and Kodi versions. Set Console timing 4 there.
 
 ## TV show
 

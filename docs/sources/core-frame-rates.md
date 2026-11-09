@@ -5,8 +5,8 @@ automatic Dither blend, whose amount depends on NTSC or PAL. Lola Retro guesses 
 alone: PAL from the line count (over 240), so PAL games with 224 or 240 lines run as NTSC; Beetle Saturn's
 352x224 gets the Mega Drive's timing, PlayStation games 256 wide the SNES row, and the X68000's 256-line
 frames need Console timing 11. This note gives the frame rate each core reports, measured where the core and a
-game were at hand, and read from the core's source otherwise. TV standard auto uses it (below); the console
-guess does not yet.
+game were at hand, and read from the core's source otherwise. TV standard auto uses it (below), and since
+2026-11-09 the console guess does for the consoles with 263 lines of 227.5 cycles (`rateTiming4`, below).
 
 ## What RetroArch passes
 
@@ -214,4 +214,35 @@ RetroArch; Dolphin's rate at run time; Beetle PSX's switch timing.
   differ); on the 240p Test Suite NTSC, and with the image viewer (two images, seven presets: composite flat and
   curved, TV show, 1084S, RF, lite, super lite), it renders as on main. (Genesis Plus GX's own picture differs
   from one run to the next at frame 200, so it was checked with the debug pass only.)
-- Not yet: the console's row and pixel clock where the rate names the console (the list above).
+- `rateTiming4()` in `common.inc` (2026-11-09), asked by `autoConsole()`: a rate between 59.80 and 59.84 is
+  Console timing 4 (the 59.82 Hz cluster above: PlayStation, PC Engine, Saturn, Dreamcast 240p), after the
+  Amiga, VGA, 24 kHz and over-300-line sizes and before the sizes that used to give the Mega Drive or SNES
+  rows; a rate between 49.74 and 49.77 (a PAL PlayStation on SwanStation or Beetle PSX; the nearest other
+  rates are the PAL Mega Drive's 49.7014 and the Saturn's and Amiga's 49.92) is timing 4 before every size
+  rule, because a PAL PlayStation game with 256 lines was taken for an Amiga. Ranges, not exact values: PUAE
+  with its refresh option reports 59.8260994, 0.0001 Hz from Beetle PSX, but its frames are found by their
+  size first, and a cropped one gets a row with the Amiga's 227.5 cycles instead of the Mega Drive's 228.
+  - Why (forum post 60, 2026-11-08): a screenshot of Final Fantasy VIII's menu on composite showed a strong
+    rainbow on the text, each colour running straight down the letter. The same phase on every line is the
+    Mega Drive row (228 cycles); the PlayStation row flips every line and every frame, and No flicker then
+    cancels it (inferred from the picture; the user's core was not known). `autoConsole` gave row 2 to any
+    frame 301 to 420 wide with fewer than 232 lines and row 1 to any frame up to 300 wide, and
+    `systems/playstation` is on auto. SwanStation's frame follows the game's own lines (measured above:
+    Crash Bandicoot 1280x956 at 4x, Need for Speed III 1024x510), so a 224-line game arrives as 320x224.
+  - Checked offscreen (macOS GL 4.1, a debug pass running `getTiming` and `steadyFrames`, the old
+    `common.inc` against the new): 204,960 cases (61 frame sizes from 256x192 to 2560x1920, 20 rates, Console
+    timing 0, 1, 2, 4, 5, 6 and 8, TV standard 0 and 2, Frames over 300 lines 0 to 2, Monitor in mm on and off,
+    Cable 1 and 4). 3,576 differ, every one on Console timing auto with one of the eight rates in the two
+    ranges. With no rate, 60.0, 50.0, 59.94, and the Mega Drive's, SNES's, FinalBurn Neo's, Saturn PAL's and
+    PUAE PAL's rates, nothing differs. NTSC examples: 320x224, 352x224 and 368x224 go from row 2 to 4 (0 to
+    0.5 cycles per line and per field, No flicker 1 frame to 2), 256x224 and 256x240 from row 1 to 4; the
+    pixel clock is the same. PAL PlayStation: 320x256, 512x256 and 640x512 go from row 6 to 4, 320x200 from 7
+    to 4, 640x480 from 5 to 4 (6.6528 MHz for 320 pixels instead of the Amiga's 7.09 or the PS2's 6.75).
+    Every pass compiles with and without `_HAS_FRAMETIME_UNIFORMS`, and the three ports.
+  - Not checked: in RetroArch with a real core and a 224-line game (none was at hand).
+- Not yet: the other rates that name a console. The Mega Drive's (59.9227, 49.7014) would fix its 256-wide
+  mode on the device presets (now the SNES row) and its 240-line PAL mode (now the PlayStation row); the
+  SNES's would fix its 512-wide mode (now the PlayStation row); the Saturn's PAL rate its 256-row frames (now
+  the Amiga row). Where the rate says nothing (PCSX ReARMed's 60 and 50, RetroArch before 1.20, the Amiberry,
+  86Box and Kodi versions) the size still decides: Console timing 4 by hand. And the pixel clock from the
+  console's own mode nearest the width.

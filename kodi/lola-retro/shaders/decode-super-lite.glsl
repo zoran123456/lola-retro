@@ -118,6 +118,22 @@ float rateStandard()
     return -1.0;
 }
 
+// The console from the core's frame rate, where the rate names it and the frame's size does not
+// (docs/sources/core-frame-rates.md). A frame of 263 lines of 227.5 subcarrier cycles comes 59.82 to
+// 59.83 times a second: the PlayStation (SwanStation 59.8173, Beetle PSX 59.826), the PC Engine (59.82,
+// 59.8261), the Saturn (59.8265) and the Dreamcast in 240p (59.8266), all Console timing 4. No console
+// on another row reports a rate from 59.80 to 59.84: the Mega Drive 59.92, the NES and SNES 60.10,
+// FinalBurn Neo's arcade boards 59.63 and less (the Amiga's 59.8261, with PUAE's refresh option, is
+// found by its frame size before this is asked). A PAL PlayStation reports 49.7468 (SwanStation) or
+// 49.761 (Beetle PSX); the nearest others are the PAL Mega Drive's 49.7014 and the Saturn's and the
+// Amiga's 49.92.
+// x: 1 for the NTSC consoles of that kind, y: 1 for a PAL PlayStation. Both 0 where the rate is
+// missing (RetroArch before 1.20, the ports) or says nothing (PCSX ReARMed reports 60 and 50).
+vec2 rateTiming4()
+{
+    return vec2(0.0);
+}
+
 // TV show: how the programme's lines map to the console's. x: raster lines per console line
 // (2 for a 240p/288p console, whose line is drawn in both fields), y: console lines per
 // programme line (1 unless the studio's standards converter scaled the picture to the other
@@ -170,6 +186,10 @@ float hash13(vec3 p3)
 float autoConsole(vec2 s)
 {
     float w = s.x, h = s.y;
+    vec2 r4 = rateTiming4();
+    // A PAL PlayStation, by its frame rate, before the sizes below: its games often have 256 lines
+    // (512 interlaced), which is the Amiga's count. Interlaced too: getTiming gives it standard fields.
+    if (r4.y > 0.5) return 4.0;
     bool mon15 = LR_MON_MM > 0.5;    // a 15 kHz monitor cannot show 31 kHz VGA
     // 640x400 is VGA's 400 lines and the PC-98's: on a computer monitor the same picture
     if (!mon15 && ((w == 320.0 && h == 200.0) || (w == 640.0 && (h == 350.0 || h == 400.0)))) return 7.0;
@@ -179,6 +199,10 @@ float autoConsole(vec2 s)
     if ((w == 360.0 || w == 720.0 || w == 1440.0) && (h == 287.0 || h == 574.0 || h == 242.0 || h == 484.0)) return 6.0;
     if (h >= 336.0 && h <= 400.0 && w >= 400.0) return 9.0;
     if (h > 300.0) return 5.0;
+    // 263 lines of 227.5 cycles, by the frame rate, whatever the frame's size: a PlayStation game with
+    // 224 lines (Final Fantasy VIII, 320x224) is not a Mega Drive, and a 256-wide one not a SNES
+    // (forum post 60: its text showed the Mega Drive's standing rainbow)
+    if (r4.x > 0.5) return 4.0;
     if (w > 420.0) return 4.0;
     // 192 lines: the Master System (and MSX, ColecoVision), 228 cycles per line like the Mega Drive
     if (w == 256.0 && h == 192.0) return 3.0;

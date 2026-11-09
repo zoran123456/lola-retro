@@ -207,6 +207,8 @@ SYSTEMS = {
     # PlayStation and N64 keep auto: set by hand, a 480-line frame would always be read as a 2x
     # upscaled 240-line one, and their native 480i games (Tekken 3) would lose it; Frames over 300
     # lines 1 would instead read every 2x frame as 480i, and their cores are often run upscaled.
+    # Auto names the PlayStation by the core's frame rate where it can (rateTiming4 in common.inc:
+    # SwanStation, Beetle PSX), so its 224-line and 256-wide games are not read as a Mega Drive or SNES.
     "playstation": ("consumer-tv-composite", dict()),
     # Saturn: its own timing (auto reads Beetle Saturn's 330x224 and 352x224 as a Mega Drive), and
     # every frame over 300 lines is its own 480i: Beetle Saturn has no upscaling, and Kronos and
