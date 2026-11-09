@@ -189,9 +189,10 @@ float autoConsole(vec2 s)
     if ((w == 360.0 || w == 720.0 || w == 1440.0) && (h == 287.0 || h == 574.0 || h == 242.0 || h == 484.0)) return 6.0;
     if (h >= 336.0 && h <= 400.0 && w >= 400.0) return 9.0;
     if (h > 300.0) return 5.0;
-    // 263 lines of 227.5 cycles, by the frame rate, whatever the frame's size: a PlayStation game with
-    // 224 lines (Final Fantasy VIII, 320x224) is not a Mega Drive, and a 256-wide one not a SNES
-    // (forum post 60: its text showed the Mega Drive's standing rainbow)
+    // 263 lines of 227.5 cycles, by the frame rate, whatever the frame's size: a PlayStation frame of
+    // 224 lines is not a Mega Drive's, and a 256-wide one not a SNES's. Final Fantasy VIII's 640x448
+    // screens at 2x internal resolution arrive as 1280x896, which is read as 320x224 at 4x: its white
+    // text showed the Mega Drive's standing rainbow (forum post 60, docs/sources/core-frame-rates.md)
     if (r4.x > 0.5) return 4.0;
     if (w > 420.0) return 4.0;
     // 192 lines: the Master System (and MSX, ColecoVision), 228 cycles per line like the Mega Drive

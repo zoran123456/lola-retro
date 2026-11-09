@@ -227,8 +227,10 @@ RetroArch; Dolphin's rate at run time; Beetle PSX's switch timing.
     Mega Drive row (228 cycles); the PlayStation row flips every line and every frame, and No flicker then
     cancels it (inferred from the picture; the user's core was not known). `autoConsole` gave row 2 to any
     frame 301 to 420 wide with fewer than 232 lines and row 1 to any frame up to 300 wide, and
-    `systems/playstation` is on auto. SwanStation's frame follows the game's own lines (measured above:
-    Crash Bandicoot 1280x956 at 4x, Need for Speed III 1024x510), so a 224-line game arrives as 320x224.
+    `systems/playstation` is on auto.
+  - How the frame got there (measured, below): Final Fantasy VIII's logos, credits and title are 640x448,
+    which auto reads as the console's 480i. At 2x internal resolution they arrive as 1280x896, and `upscaleOf`
+    takes that for 224 lines at 4x: 320x224, the Mega Drive's size.
   - Checked offscreen (macOS GL 4.1, a debug pass running `getTiming` and `steadyFrames`, the old
     `common.inc` against the new): 204,960 cases (61 frame sizes from 256x192 to 2560x1920, 20 rates, Console
     timing 0, 1, 2, 4, 5, 6 and 8, TV standard 0 and 2, Frames over 300 lines 0 to 2, Monitor in mm on and off,
@@ -239,7 +241,20 @@ RetroArch; Dolphin's rate at run time; Beetle PSX's switch timing.
     pixel clock is the same. PAL PlayStation: 320x256, 512x256 and 640x512 go from row 6 to 4, 320x200 from 7
     to 4, 640x480 from 5 to 4 (6.6528 MHz for 320 pixels instead of the Amiga's 7.09 or the PS2's 6.75).
     Every pass compiles with and without `_HAS_FRAMETIME_UNIFORMS`, and the three ports.
-  - Not checked: in RetroArch with a real core and a 224-line game (none was at hand).
+  - Checked in RetroArch 1.22.2 (Vulkan, a temporary config) with SwanStation and Final Fantasy VIII (USA, disc 1),
+    a debug pass writing `getTiming` into the picture, the code before this change against the code after:
+
+    | Internal resolution, frame | Frame the core sends | Before | After |
+    |---|---|---|---|
+    | 1x, frame 300 (start-up) | 256x224 | (not run) | timing 4, 0.5 cycles per line and per frame, 2 frames |
+    | 1x, frames 900 to 3000 (logos, credits) | 640x448 (640x480 with Crop mode Borders) | timing 5, interlaced, 2 frames | the same |
+    | 2x, frame 1500 | 1280x896, read as 320x224 at 4x | timing 2, 0 cycles per line, 1 frame | timing 4, 0.5 and 0.5, 2 frames |
+
+    The core reported 59.8173332 throughout. Through `systems/curved/playstation` at 2x, the white credits text
+    (frame 2100) carries the Mega Drive's rainbow before, each colour running down the letter as in the forum
+    screenshot, and is white after.
+  - Not checked: a game that is 320x224 or 256 wide at 1x during play (the test stopped in FF8's credits), and
+    Beetle PSX.
 - Not yet: the other rates that name a console. The Mega Drive's (59.9227, 49.7014) would fix its 256-wide
   mode on the device presets (now the SNES row) and its 240-line PAL mode (now the PlayStation row); the
   SNES's would fix its 512-wide mode (now the PlayStation row); the Saturn's PAL rate its 256-row frames (now

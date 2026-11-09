@@ -263,8 +263,10 @@ in 240-line PAL mode), or use a preset from `systems/`.
 
 In RetroArch 1.20 and newer the core's frame rate comes first where it names the console's line and frame.
 59.82 frames a second is 263 lines of 227½ cycles, so timing 4 whatever the frame's size (PlayStation on
-SwanStation and Beetle PSX, PC Engine, Saturn on Beetle Saturn): a PlayStation game with 224 lines
-(Final Fantasy VIII, 320×224) is not taken for a Mega Drive, and a 256-wide one not for a SNES. A PAL
+SwanStation and Beetle PSX, PC Engine, Saturn on Beetle Saturn): a PlayStation frame with 224 lines is not
+taken for a Mega Drive's, and a 256-wide one not for a SNES's. (Final Fantasy VIII's 640×448 screens at 2×
+internal resolution arrive as 1280×896, which is read as 320×224 at 4×: their white text showed the Mega
+Drive's standing rainbow.) A PAL
 PlayStation (49.75 or 49.76) is timing 4 too, also with 256 lines, which would otherwise be an Amiga's.
 Where the rate says nothing, the size alone decides, as above: cores that report a round 60 or 50 (PCSX
 ReARMed), older RetroArch, and the Amiberry, 86Box and Kodi versions. Set Console timing 4 there.
