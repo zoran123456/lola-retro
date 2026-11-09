@@ -2245,6 +2245,16 @@ void main()
     if (inside > 0.0)
     {
         vec3 prev = textureLod(LR_CRTFeedback, vTexCoord, 0.0).rgb;
+        // An Inf or NaN in the previous frame would never fade: Inf times the afterglow is still
+        // Inf, and the max below keeps it frame after frame, until the preset is loaded again. So
+        // one bad value, from a pass's own arithmetic on some driver or from a frontend that hands
+        // over a target it did not clear, would stay on the screen for good. Only a light the tube
+        // can make gets through: a comparison with NaN is false, and each channel is picked, not
+        // multiplied (NaN times 0 is still NaN). 64: above any HDR peak over paper white (25 at
+        // most). docs/sources/afterglow-feedback.md
+        prev = vec3((prev.r >= 0.0 && prev.r < 64.0) ? prev.r : 0.0,
+                    (prev.g >= 0.0 && prev.g < 64.0) ? prev.g : 0.0,
+                    (prev.b >= 0.0 && prev.b < 64.0) ? prev.b : 0.0);
         col = max(col, prev * global.LR_PERSIST);
     }
 #endif

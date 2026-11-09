@@ -28,3 +28,4 @@ and marks what was worked out (inferred) rather than read.
 | [hdr-presets.md](hdr-presets.md) | why the HDR presets are separate presets (what RetroArch tells a shader about HDR); `hdr/systems` (forum post 49) |
 | [arcade-monitors.md](arcade-monitors.md) | `systems/arcade-15khz`: the whole game on the glass, as arcade manuals said to set the monitor (Picture height 1, overscan); the spot in mm with Picture height 1 (`crt.inc`) |
 | [kodi.md](kodi.md) | the Kodi version (PR #15): the Kodi fixes it needs, the check on macOS, why its screenshots looked darker (tagged BT.709), why the Shield ran out of memory (RGBA32F, the 8192-wide beam), super lite for Kodi and how it was checked |
+| [afterglow-feedback.md](afterglow-feedback.md) | the afterglow's guard against Inf and NaN from the previous frame (`crt.inc`): what RetroArch does with feedback targets, why the guess of forum post 24 does not hold |
