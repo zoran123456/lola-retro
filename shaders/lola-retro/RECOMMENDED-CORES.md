@@ -22,7 +22,7 @@ Every preset exists in `curved/` and `flat/`; the tables below apply to both.
 
 Console timing ids: 1 SNES/NES, 2 Mega Drive H40, 3 Mega Drive H32 and Master System, 4 PlayStation,
 5 PlayStation 2, 6 Amiga, 7 PC VGA (and PC-98), 8 Arcade 15 kHz, 9 Arcade 24 kHz, 10 X68000, 11 X68000
-with 256-line frames at 15 kHz.
+with 256-line frames at 15 kHz, 12 Arcade 31 kHz.
 Systems that are not in that list use the id whose timing matches theirs.
 
 ## 8-bit and 16-bit
@@ -44,6 +44,7 @@ Systems that are not in that list use the id whose timing matches theirs.
 |---|---|---|---|---|
 | 15 kHz arcade (CPS1/2, Neo Geo MVS, most 80s and 90s boards) | FinalBurn Neo, MAME | `systems/arcade-15khz` (the Amiga 1084S set up for the arcade) | 8 (set by the preset) | Arcade monitors were 15 kHz RGB. Vertical games: RetroArch rotates the whole picture, including scanlines and mask, the same as a monitor turned on its side. The preset shows the whole game with a thin black border, as the arcade manuals said to set the monitor up, and the game's lines fill the height whether it has 224, 240 or 256 of them (Picture height 1). |
 | Medium-res 24 kHz (Sega Model 1/2 at 496×384) | MAME | CRT Projector (deluxe cabinets) or Studio Monitor (RGB) | auto (9) | |
+| 31 kHz (Naomi, Naomi 2, Atomiswave) | Flycast | `systems/arcade-31khz` (the Nanao MS-2931, Sega's 29-inch arcade monitor) | 12 (set by the preset) | 640×480 with every line drawn once. Internal resolution: native, or a whole multiple of 640×480 (1280×960, 1920×1440, 2560×1920), which is read as the same 480 lines with smoother edges; other sizes are drawn line for line. `arcade-15khz` would draw these games as an interlaced 15 kHz picture. |
 
 ## 32-bit and 64-bit
 

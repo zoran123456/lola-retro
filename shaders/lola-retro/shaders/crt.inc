@@ -165,18 +165,25 @@ vec3 stripes(float x)
     return m;
 }
 
-// Slot mask: horizontal breaks, staggered per triad column
-float slotGate(float x, float y)
+// Slot mask: horizontal breaks, staggered per triad column. per: the slots' vertical pitch in trio
+// widths. 2 unless the tube gives its own (Slot mask: vertical pitch): the Nanao MS-2931's is 0.6 mm
+// on a 0.8 mm trio (docs/sources/arcade-31khz-monitor.md).
+float slotGate(float x, float y, float per)
 {
-    float yy = fract(y * 0.5 + mod(floor(x), 2.0) * 0.5);
+    float yy = fract(y / per + mod(floor(x), 2.0) * 0.5);
     return smoothstep(0.0, 0.12, yy) * smoothstep(1.0, 0.88, yy);
 }
+// The slots' share of the light on average, for where they are finer than the screen can show
+const float SLOT_AVG = 0.31 / 0.367;
 
 // The mask at 2 points across a screen pixel, or 2x2 for the slot and dot masks (a and b are the
 // corners), to keep moire down. The CRT pass takes each point's light through the display's
 // shoulder before averaging them (see there). Parts that only depend on x are evaluated once per
 // column. Returns how many points s holds.
-int maskPoints(vec2 a, vec2 b, float mt, inout vec3 s[4])
+// per: the slot mask's vertical pitch in trio widths; fade: 1, or less where that pitch is too fine
+// for the screen's pixels (below about 2.6 of them: the breaks then beat against the pixel rows, so
+// they fade to their average, as the whole mask does on a fine trio pitch).
+int maskPoints(vec2 a, vec2 b, float mt, float per, float fade, inout vec3 s[4])
 {
     if (mt > 3.5) { s[0] = vec3(lenticular(a.x)); s[1] = vec3(lenticular(b.x)); return 2; }
     if (mt > 2.5)
@@ -187,7 +194,9 @@ int maskPoints(vec2 a, vec2 b, float mt, inout vec3 s[4])
     vec3 ma = stripes(a.x), mb = stripes(b.x);
     if (mt > 1.5)
     {
-        s[0] = ma * slotGate(a.x, a.y); s[1] = ma * slotGate(a.x, b.y); s[2] = mb * slotGate(b.x, a.y); s[3] = mb * slotGate(b.x, b.y);
+        vec4 gt = vec4(slotGate(a.x, a.y, per), slotGate(a.x, b.y, per), slotGate(b.x, a.y, per), slotGate(b.x, b.y, per));
+        if (fade < 1.0) gt = mix(vec4(SLOT_AVG), gt, fade);
+        s[0] = ma * gt.x; s[1] = ma * gt.y; s[2] = mb * gt.z; s[3] = mb * gt.w;
         return 4;
     }
     s[0] = ma; s[1] = mb;
@@ -201,8 +210,9 @@ int maskPoints(vec2 a, vec2 b, float mt, inout vec3 s[4])
 // of the slot and dot masks are moved to whole pixels too, a slot's break and a dot's centre onto
 // the middle of a pixel row. Two pixels cannot hold three stripes: w = 2 is magenta and green
 // (a checkerboard for the dot mask), as in pixel masks for low-resolution screens.
-// p: the screen pixel. Returns the mask, and in a its average (the masks' averages on the tube).
-vec4 pixelMask(vec2 p, float w, float mt)
+// p: the screen pixel; per: the slot mask's vertical pitch in trio widths (the whole number of pixel
+// rows nearest it, 2 at least). Returns the mask, and in a its average (the masks' averages on the tube).
+vec4 pixelMask(vec2 p, float w, float mt, float per)
 {
     vec3 m = vec3(0.0);
     if (mt > 2.5 && w > 2.5)
@@ -228,9 +238,11 @@ vec4 pixelMask(vec2 p, float w, float mt)
     }
     if (mt > 1.5 && mt < 2.5)
     {
-        // slot mask: the breaks, half a slot (w rows) lower from one triad column to the next
+        // slot mask: the breaks, half a slot (w rows for a pitch of two trios) lower from one triad
+        // column to the next
         float x = (p.x + 0.5) / w, g = 0.0;
-        for (float j = 0.125; j < 1.0; j += 0.25) g += slotGate(x, (p.y + j - 0.5) / w);
+        float hr = 0.5 * max(2.0, floor(w * per + 0.5));   // half the slots' pitch in pixel rows
+        for (float j = 0.125; j < 1.0; j += 0.25) g += slotGate(x, (p.y + j - 0.5) / hr, 2.0);
         m *= 0.25 * g;
         avg *= w < 2.5 ? 0.88 : 0.31 / 0.367;
     }
@@ -2155,6 +2167,8 @@ void main()
         // on screen pixels (pixelMask): w pixels per triad, or with 1 (auto) the whole number nearest
         // the tube's own pitch; it does not need to fade out on fine pitches
         bool onPx = global.LR_MASK_PX > 0.5 && mt > 0.5 && mt < 3.5;
+        // the slot mask's vertical pitch in trio widths: the tube's own where it is given in mm
+        float slotPer = (mm && global.LR_MON_PITCH_V > 0.0) ? global.LR_MON_PITCH_V / global.LR_MON_PITCH : 2.0;
         float wPx = global.LR_MASK_PX < 1.5 ? clamp(floor(pitchPx + 0.5), 2.0, 6.0) : global.LR_MASK_PX;
         float str = global.LR_MASK_STR * (onPx ? 1.0 : smoothstep(1.6, 2.6, pitchPx));
         // the mask's share of the light at each of its points in this pixel (one without a mask or on
@@ -2167,7 +2181,7 @@ void main()
             float avg;
             if (onPx)
             {
-                vec4 pm = pixelMask(floor(vTexCoord * params.OutputSize.xy), wPx, mt);
+                vec4 pm = pixelMask(floor(vTexCoord * params.OutputSize.xy), wPx, mt, slotPer);
                 mf[0] = pm.rgb;
                 avg = pm.a;
             }
@@ -2175,7 +2189,7 @@ void main()
             {
                 vec2 mp = ut * tubePx / pitchPx;
                 float dp = 0.25 / pitchPx;
-                nm = maskPoints(mp - dp, mp + dp, mt, mf);
+                nm = maskPoints(mp - dp, mp + dp, mt, slotPer, smoothstep(1.6, 2.6, slotPer * pitchPx), mf);
                 avg = mt < 1.5 ? 0.367 : (mt < 2.5 ? 0.31 : (mt < 3.5 ? 0.19 : 0.84));
             }
             for (int i = 0; i < 4; i++) mf[i] = mix(vec3(1.0 - str), vec3(1.0), mf[i]) / mix(1.0 - str, 1.0, avg);

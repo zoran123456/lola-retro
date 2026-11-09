@@ -154,6 +154,9 @@ amplifier, D65 white, and the picture as owners set it up, nearly filling the gl
 millimetres, NTSC games (200 lines, further apart) show stronger lines than PAL games (256 lines), as on the
 real monitor. The beam was calibrated on a photo of a real 1084S.
 
+`systems/arcade-31khz` is built the same way for Naomi and Atomiswave games, from Eizo's service manual of the
+Nanao MS-2931, Sega's 29-inch arcade monitor: a 0.8 mm slot mask and 480 lines, each drawn once.
+
 ![The same text on the 1084S in PAL and NTSC](docs/amiga-1084s-pal-ntsc.jpg)
 
 ## Around the tube

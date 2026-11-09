@@ -1,6 +1,6 @@
 # Arcade 31 kHz monitors: the Nanao MS-2931 and the Sanwa 29PFX
 
-Researched 2026-11-09. No preset uses this yet: the note says what was found, and what a preset would need.
+Researched 2026-11-09, for `systems/arcade-31khz` (made the same day).
 
 ## The question
 
@@ -80,32 +80,102 @@ The MS-2931's test signals (2.6, Recommended Signal Timing Chart) are Sega's own
 - **The picture size confirms `arcade-monitors.md`**: the whole picture on the screen, with about 5 mm of
   black around it.
 
-## What a preset would need (not done)
+## What the preset does
 
-1. Parameter ranges: Monitor size stops at 21 inches (27.6 needed, so also a step of 0.5 or 0.1), Dot pitch
-   at 0.70 mm (0.8 needed), White point at 9300 K (9700 in the manual). Wider ranges keep saved presets valid.
-2. The slot mask's vertical pitch. `slotGate` in `crt.inc` repeats every two trio widths (1.6 mm here); the
-   tube's vertical pitch is 0.6 mm. On a tube in mm it should come from the tube.
-3. A timing for 31 kHz arcade boards. Console timing 7 (VGA) never reads a frame as upscaled, and Naomi's 3D
-   games are usually run at 2x or more in Flycast: 1280x960 would be drawn as 960 lines. It needs the 480-line
-   base that the TV timings have, drawn once per line.
-4. The spot. Neither manual gives a number. As for the 1084S, it has to be calibrated on photos of the real
-   screen at 31 kHz and at 15 kHz (line gaps and beam only, not colour).
-5. Curvature from the radii (the sag of a 2400 mm radius over the 270 mm half width is 15 mm), the border
-   from the 5 mm, and the convergence limits as an upper bound.
+`systems/arcade-31khz` (and its flat, HDR, lite and super lite versions) is the PC monitor model with this tube:
+
+| Value | From |
+|---|---|
+| Console timing 12: 640 pixels at 27 MHz, every line once | Flycast, `core/hw/pvr/spg.cpp`: `PIXEL_CLOCK = 27 * 1000 * 1000`, halved unless the VGA bit is set |
+| Monitor size 28 | the model's face is one inch under the nominal size: 27 inches, 548.6 x 411.5 mm, 1.4% over the manual's 540.8 x 405.6. Monitor size stays in whole inches (the Unity package keeps it as a whole number), so the two pitches are 1.4% up too |
+| Dot pitch 0.81, Slot mask: vertical pitch 0.61, Mask 2 (slot) | the trio pitch, 0.8 x 0.6 mm. The manual's drawing of the screen shows blue, green and red in a row, which is a stripe tube |
+| White point 9700 | the manual |
+| Overscan -0.02, Overscan height -0.005 | the picture 5 mm inside the screen's edges |
+| Curvature 0.01 across, 0.02 down | the radii, seen from 70 cm (assumed: a seated player). The corners lie (270.4 mm)^2 / (2 x 2400 mm) = 15 mm behind the middle of the top edge, so they look 15 / 700 = 2% of the half height nearer the middle; the sides (202.8 mm)^2 / (2 x 2440 x 700) = 1% |
+| Phosphors auto: Japanese P22 | as the other arcade timings (not in the manual) |
+| Spot 0.57 mm on dark, 1.33 mm on white | **assumed**: the 1084S's 0.28 and 0.65 mm, which were calibrated on a photo, times the screens' diagonals (676 / 330 mm). The trio pitches have nearly the same ratio (0.8 / 0.42), so the spot is as large against the mask as on the 1084S |
+| Spot size in the corners 1.5 | **assumed**: the 1084S's |
+| Misconvergence 0.3 | **assumed**: a third of the manual's limits. 0.3 puts red and blue 0.35 mm apart in the middle and 1.0 mm at the sides; the limits are 1.5 and 3.0 mm |
+| Glass glow 0.06, Darker edges 0.25, afterglow 0.05, Room reflection 0.2, Rounded corners 0.045 | **assumed**: as `arcade-15khz` and the TV presets |
+| Colour 1.08, Contrast 1.05 | kept from `pc-monitor-vga` |
+
+In the shader (`common.inc`, `crt.inc`, `beam.inc`):
+
+- **Console timing 12.** The board's picture is always 640x480, so a frame of a whole multiple of 480 lines is
+  read as that picture at a higher internal resolution (`upscaleOf`), which the VGA timing never does: Naomi's
+  3D games are usually run at 2x or more. Any other height is drawn line for line. RGB whatever Cable says.
+- **The slot mask's vertical pitch** (`LR_MON_PITCH_V`, new; 0 keeps twice the dot pitch, as before). Where
+  the breaks would be less than about 2.6 screen pixels apart they fade to their average, the way the whole
+  mask fades on a fine trio pitch: at 1080p this tube's are 1.6 pixels apart, at 1440p 2.1, at 4K 3.2.
+- **Ranges**: Monitor size to 29 inches (was 21), Dot pitch to 1.00 mm (0.70), White point to 9700 K (9300),
+  Console timing to 12.
+- **The beam along the line** takes at most 24 pixel steps. A spot wider than that in frame pixels (this
+  tube from 4x internal resolution) now takes its pixels in groups; before, the loop stopped at the 24th pixel
+  and cut the right side of the spot off.
+- **Misconvergence on upscaled frames.** Its limit was one frame pixel, so it shrank as the internal
+  resolution went up; it is one console pixel now. This changes upscaled frames on every preset a little.
+- The preset's decoder runs at 2560 samples per line (4 per pixel of the 640), whatever the frame's width, so
+  that a 4x frame does not make it 10240 wide; every frame pixel keeps a sample of its own up to 4x.
+
+The 28.4 MHz amplifier is not modelled: the PC monitor path reads each pixel as a flat step. At 27 MHz its
+Gaussian is an eighth of a pixel wide and would take about 7% off the contrast of 1-pixel stripes, far less
+than the spot does.
+
+## Checked (2026-11-09)
+
+Offscreen on macOS OpenGL 4.1 (M4 Pro), the whole chain run as RetroArch sizes and feeds it (a ctypes script
+in the session's scratchpad, not in the repository):
+
+- **Nothing else changed.** 107 renders of the other presets (every system and device preset, flat, lite and
+  super lite versions, four masks, Mask on screen pixels, 4K, Around the tube) against the commit before: 102
+  byte for byte the same. The 5 that differ are upscaled frames (3x and 4x on the TV presets, 2x on the
+  computer monitor for tall frames), from the misconvergence limit: 46 to 58 dB. A 4x frame is now 46.4 dB
+  from the native one, before 43.4. `getTiming` old against new, 204,960 cases: none differ.
+- **The border**: with a crosshatch whose frame line is at the very edge, 4.6 mm of black at the sides and
+  3.8 to 4.0 mm at the top and bottom, up to the first lit pixel; the corners of the frame line are lit, on
+  the curved preset too.
+- **The lines** (flat field, mask off, the lines' modulation): 18% at 1% of white, 10% at 5%, 6% at 10%, 1% at
+  30%, none on white. So 480 lines merge except in dark areas. Alternating white and black lines keep 15 to
+  18% of their contrast, 1-pixel stripes across 17% at 1080p and 28% at 4K.
+- **Mask and moiré**: on 30% grey and on white at 1080p, 1440p and 4K the slow ripple (a 25-pixel mean) is
+  about 1%, the same as `amiga-1084s` in the same test.
+- **Upscaled frames**: 2x, 3x, 4x and 6x of the same picture come out 41 to 43 dB from the native one. What
+  differs is the glass glow of 1-line detail: the glow pass averages two lines of a native frame before it
+  turns them into light, and a native frame's alternating lines glow 0.19 instead of 0.5. (That is in every
+  preset and was not changed here.) 960x720 is drawn as 720 lines.
+- Lite against full: 62 dB. Super lite: 50 dB. Every pass and the three ports compile.
+
+In RetroArch 1.22.2 (Vulkan, macOS, a temporary config, the built-in image viewer with the same crosshatch at
+640x480 and 1280x960, a screenshot after 90 frames): the preset and its lite, super lite and HDR versions load
+with no errors in the log. At 2880x2160, 2x against 1x is 43.2 dB, lite against full 66.8 dB, super lite 51.4 dB,
+as offscreen. `systems/snes` and `amiga-1084s` load as before.
+
+Not checked: with Flycast and a game (the core is not installed here); the HDR version's picture; a real MS-2931.
 
 ## Not found
 
-- The spot size, or any focus figure.
-- The phosphors' chromaticities. Phosphors auto gives Japanese P22 to the arcade timings.
-- Whether the tube is a slot mask by name. A trio pitch with a vertical figure fits one; the manual does not
-  say.
+- **The spot size**, or any focus figure. Two searches for close-up photos of this monitor at 31 kHz found
+  owners' remarks but no photo to measure. This is the value that decides how much of the lines shows, and it
+  is an assumption.
+- The phosphors' chromaticities.
+- Whether the tube is a slot mask by name. A trio pitch with a vertical figure and the stripes in the drawing
+  fit one; the manual does not say.
+- The radius of the screen's corners.
 - Which cabinets carried which monitor, from the makers. The scan's title page names two deluxe Sega games;
   that the Naomi Universal and Blast City cabinets used these Nanao monitors, and which monitor the
   Atomiswave SD cabinet had (forum posts name a Wei-Ya chassis with a Samsung tube), is community knowledge
   that was not checked here.
 - The 29PFX's screen size and the rest of its manual beyond pages 3 to 5.
+- An arcade cabinet for Around the tube: it draws the PC monitor's casing.
 
 ## Where the code uses it
 
-Nowhere yet.
+- `tools/make_presets.py`: `SYSTEMS["arcade-31khz"]`, `SYSTEM_PASSES` (2560 samples), the tubes in mm of the
+  lite presets.
+- `shaders/lola-retro/shaders/common.inc`: Console timing 12 (`consoleTable`, `upscaleOf`, `getTiming`,
+  `phosphorSet`), `LR_MON_PITCH_V` and the ranges.
+- `shaders/lola-retro/shaders/crt.inc`: `slotGate`, `maskPoints`, `pixelMask` (the vertical pitch and its fade).
+- `shaders/lola-retro/shaders/beam.inc`: the pixel steps in groups, the misconvergence limit.
+- READMEs: the systems table, Console timing ids, Slot mask: vertical pitch and the Arcade 31 kHz monitor
+  section (`shaders/lola-retro/README.md`), the arcade table of `RECOMMENDED-CORES.md`.
+- `tools/make_unity.py` knows the new parameter and timing; the Unity package was not regenerated.

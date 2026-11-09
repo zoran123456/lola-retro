@@ -43,6 +43,7 @@ see [Lite presets](#lite-presets); if that is still too slow, from `lola-retro/s
 | `gamecube` | GameCube | Trinitron (S-Video) | 5 |
 | `dreamcast` | Dreamcast on a TV (for the VGA cable use `dos-pc`) | Consumer TV (Composite) | 5 |
 | `arcade-15khz` | 15 kHz arcade (CPS1/2, Neo Geo MVS, most 80s and 90s boards) | Amiga 1084S, set up as the arcade manuals say: the whole game on the glass, whatever its line count (Picture height 1) | 8 |
+| `arcade-31khz` | 31 kHz arcade (Naomi, Atomiswave) | Nanao MS-2931, Sega's 29-inch arcade monitor, from Eizo's service manual: a 0.8 mm slot mask, 480 lines, each drawn once (see [Arcade 31 kHz monitor](#arcade-31-khz-monitor)) | 12 |
 | `amiga` | Amiga | Amiga 1084S | 6 |
 | `dos-pc` | DOS and Windows 9x | PC Monitor (VGA) | 7 |
 | `pc-98` | NEC PC-98 (640×400) | PC Monitor (VGA): 400 sharp lines on a computer monitor, as on the PC-98's own | 7 |
@@ -182,7 +183,7 @@ Every preset only sets parameters, so you can tweak any preset in **Quick Menu �
 | No flicker | On by default. Shows a still picture the way the eye saw the moving one: the dots and the cross-colour that crawl from frame to frame are averaged over the frames of their cycle (2 on the PlayStation), so they cancel, as the eye blended them at 50 or 60 Hz (the NES and SNES only alternate between two positions 2/3 of a cycle apart, so there they halve instead); both interlaced fields are drawn every frame. Turn it off for the real moving dot crawl and 480i field flicker. |
 | TV show: tape copies | Cable 4 only. How many Betacam SP copies the game footage went through before it was broadcast (recorded, then edited onto the master tape: 2). Each copy softens luma and colour a little more. 0 is a live programme. |
 | TV show: antenna ghost | Cable 4 only. A faint copy of the picture shifted to the right, from a reflection off a building or a hill on the way to the roof antenna. |
-| Beam width in dark areas / on white | The beam spot grows with brightness, in both directions: bright lines merge and bright detail rounds off, dark lines show gaps and dark detail stays sharp. TVs; monitors in mm (PC monitors, the 1084S, the X68000's) use the spot sizes in mm below. |
+| Beam width in dark areas / on white | The beam spot grows with brightness, in both directions: bright lines merge and bright detail rounds off, dark lines show gaps and dark detail stays sharp. TVs; monitors in mm (PC monitors, the 1084S, the X68000's, the arcade 31 kHz monitor) use the spot sizes in mm below. |
 | Horizontal focus | Horizontal spot size relative to the vertical one; 0.5 = a round spot. Not used on monitors in mm (their spot is round). |
 | Tube gamma | 2.4 is typical. |
 | Phosphor afterglow | Real phosphors fade within about a millisecond, so keep this low. |
@@ -192,15 +193,16 @@ Every preset only sets parameters, so you can tweak any preset in **Quick Menu �
 | Mask strength / triads per screen height | Lower the triad count for a coarser mask. Below about 2 screen pixels per triad the mask fades out to avoid moiré, so the fine PC mask shows best at 4K. On monitors in mm the triad count comes from the mask pitch instead. Each screen pixel averages the mask at 2 points (2×2 for slot and dot masks), and a lit stripe can be brighter than SDR's white, so each point's light is squeezed into the display's range on its own before the average: the triads keep their brightness wherever they land between the screen's pixels, and what is left of the beat against them (moiré) is faint, about 0.2% at 1080p on `trinitron-s-video` (2.84 pixels per triad). On presets with a strong mask white comes out 1 to 4% darker in SDR for it. |
 | Mask on screen pixels | 0 (default): the mask at the tube's own size (triads per screen height, or the dot pitch in mm), the same on every display. 2–6: the mask drawn on whole screen pixels, one triad every 2 to 6 pixels, like the pixel masks of other CRT shaders: it lines up with the screen's pixels, so it shows no moiré and does not fade out on a low-resolution display, but the number of triads follows your resolution instead of the tube. 2 is magenta and green (fine), 3 red, green and blue, 4 and up coarser. 1 (auto) takes the whole number of pixels nearest the tube's own triads (for 360 triads: 3 at 1080p, 4 at 1440p, 6 at 4K). For the aperture grille, slot mask and shadow mask; best on an LCD with RGB stripes. |
 | Damper wires | The two thin horizontal lines a third and two thirds down on the aperture grille presets (`trinitron-s-video`, the studio monitors, `playstation-2`, `gamecube`): the wires that hold a Trinitron's grille steady. 1 (default) as on the tube, lower values fainter, 0 leaves them out. On a real set they show on bright, even pictures and are easy to miss in a game, more so from the sofa than from the distance a desktop monitor is viewed at. |
-| White point | 6500 K neutral, 9300 K is the bluish white many TVs and monitors had. |
+| White point | 6500 K neutral, 9300 K is the bluish white many TVs and monitors had (9700 K on the arcade 31 kHz monitor, from its manual). |
 | Phosphors | 0 auto, 1 sRGB, 2 SMPTE-C, 3 EBU, 4 Japanese P22. The colours of the tube's phosphors. Auto: SMPTE-C on NTSC sets, EBU on PAL sets, sRGB on PC monitors, Japanese P22 on arcade monitors and the X68000's; the Trinitron preset uses Japanese P22 and the studio monitor EBU. Colours outside your display's range are clipped in SDR and kept in HDR. |
 | Curvature, Rounded corners, Glass glow, Glass glow size, Darker edges, Overscan, Overscan height, Room reflection | The glass. Curvature is how much the glass bulges: its edges bow outwards and crop the corners of the picture. Glass glow sets how strong the halo around bright things is, Glass glow size how far it reaches. Set curvature and corners to 0 for a flat screen (that is all the `flat` presets change). Overscan is how far the picture runs past the edges of the glass; negative overscan adds a black border, like PC monitors. Overscan height is added to it for the height alone, like the monitor's height knob: raise it to fill the height (a 224-line SNES game keeps thin black bars at the top and bottom otherwise), lower it for a border at the top and bottom only. Room reflection is the room's light the glass reflects, in % of white, in a dim room (Room light 1): 0.2 on a TV, 0 on the studio monitors. |
 | Raster bend | How much of the glass curvature the picture follows. The deflection was corrected so that the raster looks nearly rectangular from the front; a well adjusted set kept the bow of its lines to about 1% of the height, which is the default (0.3). 0 is a perfectly corrected raster, 1 a picture bent as much as the glass. |
 | Picture height | 0 (default): the picture sits in the TV's 240- or 288-line field, so a game with fewer lines (224) keeps a border, as on the real set. 1: the core's lines fill the height. Use it with **Aspect Ratio: Core provided** for cores that crop lines and set the aspect ratio from the lines they keep (Geargrafx, Beetle PCE/Saturn/PSX with their scanline options); with a fixed 4:3 it stretches the picture. On a TV it is a zoom of the same tube, so lines and beam keep their look. On a monitor described in mm (the 1084S, the X68000's) it is the monitor's height control instead: the lines move apart or together and the spot keeps its size, so a 224-line game shows a little more of the gaps between its lines than a 240-line one. `systems/arcade-15khz` uses 1: an arcade monitor was set up for the game in the cabinet, and MAME's frame is the game's whole picture. Not used on a TV show (Cable 4). On the X68000 monitor it works the same way: a 256-line game on Console timing 11 is taller than the monitor's 240-line 15 kHz picture, so at 0 eight lines at the top and bottom fall outside it, and at 1 it fills the height. |
 | Linearity error horizontal, vertical | Off (0) by default. Real deflection was never perfectly linear: one side of the picture came out squeezed and the other stretched, differently on every set. Positive values squeeze the left or the top, negative the right or the bottom; 0.05 to 0.1 is a cheap set. |
 | 15 kHz monitor in mm | Describes the tube in mm for 15 kHz modes too (on in the `amiga-1084s` preset): the parameters below then apply, the monitor shows the whole active line (a 320-pixel Amiga line leaves side borders), and 320×200 / 640×400 are read as an NTSC Amiga instead of VGA. PC monitors (31 kHz) and the X68000 monitor always use mm. |
-| Monitor size, Dot pitch | Nominal size in inches (the viewable picture is one inch less) and the mask pitch in mm. See [PC monitor](#pc-monitor), [Amiga 1084S](#amiga-1084s) and [X68000 monitor](#x68000-monitor). |
-| Spot size in dark areas / on white | The beam spot in mm (width at half brightness). 0.30 / 0.45 is a typical 15-inch PC monitor, 0.28 / 0.65 the 1084S (and the X68000 preset); lower both for a sharper tube. |
+| Monitor size, Dot pitch | Nominal size in inches (the viewable picture is one inch less) and the mask pitch in mm. See [PC monitor](#pc-monitor), [Amiga 1084S](#amiga-1084s), [X68000 monitor](#x68000-monitor) and [Arcade 31 kHz monitor](#arcade-31-khz-monitor). |
+| Slot mask: vertical pitch | On a monitor in mm with a slot mask: how far apart the breaks in its stripes are, down the screen, in mm. 0 (default): twice the dot pitch, as on the TV presets. `systems/arcade-31khz` sets the tube's own, 0.6 mm on a 0.8 mm trio. Where the breaks would be finer than about 2.6 screen pixels (that preset below 4K) they fade to their average, so they cannot beat against the pixel rows. |
+| Spot size in dark areas / on white | The beam spot in mm (width at half brightness). 0.30 / 0.45 is a typical 15-inch PC monitor, 0.28 / 0.65 the 1084S (and the X68000 preset), 0.57 / 1.33 the 29-inch arcade monitor; lower both for a sharper tube. |
 | Spot size in the corners | How much larger the spot is in the corners than in the centre (deflection defocus). 1.4 is typical for a PC monitor (dynamic focus kept good ones below 1.5, cheap ones reached 2); the 1084S had static focus, 1.5. |
 | Real size: your screen's height, unit | Draws the tube as large as the monitor in **Monitor size** really was, with black (or **Around the tube**) around it, instead of filling your screen. Enter the height of your screen's picture area (measured, in cm, or in inches with unit 1); 0 fills the screen. On a large display this puts the monitor at its real size in front of you. Needs the picture area as tall as the screen (full screen). |
 | Around the tube | What is around the tube: 0 black, 1 the monitor in a room, 2–11 the monitor in a scene (see [Scenes](#scenes)). The casing is measured on photos of real monitors and drawn as large as the real one, so it shows best with **Real size**. `amiga-1084s` gets an Amiga monitor (after the M1438S): warm off-white, a thick flat front, a tunnel with mitred corners down to a thin black mask at the glass, a plain chin with a green power light. The PC presets get a 90s PC monitor (after a Compaq 151FS): aged cream, a raised rim around a shallower recess, a blank plaque, and a control strip below with buttons and a green light. The TV presets get a 90s TV (after photos of several): dark grey plastic, thin sides, the glass almost flush with the front, and a tall chin with a speaker grille on each side of the controls (a power switch, a red light, four small buttons). TVs came from 14 to 29 inches, so the TV is sized to **Monitor size**. `x68000-monitor` gets the TV too: the CZ-600D was a TV set as well. The walls around the glass face the picture, so the screen lights them softly in its colours and they change with it (**Screen light on the casing**); the room lights them from above, darker at the top and lighter at the bottom, and the satin plastic catches a little of the ceiling and the lamp on the edges that face up. |
@@ -246,6 +248,7 @@ display. Space, Bouncing lines and Amiga demo take the most GPU time; on a slow 
 | 9 | Arcade 24 kHz | Medium-res arcade, e.g. Sega Model 2 at 496×384 progressive. |
 | 10 | Sharp X68000 | On its own monitor: up to 240 lines at 15 kHz (gaps between the lines), 256-line frames at 31 kHz with every line drawn twice (no gaps), taller frames line by line. RGB only. |
 | 11 | Sharp X68000, 256 lines at 15 kHz | The same, but 256-line frames at 15 kHz, for the few games that show a 256-line window there. |
+| 12 | Arcade 31 kHz | Naomi and Atomiswave: 640×480 with every line drawn once, on a monitor described in mm. A frame of a whole multiple of 480 lines is that picture at a higher internal resolution. RGB only. Never picked by auto. |
 
 Systems that are not in the list use the id with the same timing: PC Engine, Saturn and Nintendo 64 use 4, the PC-98 uses 7
 (its 640×400 on a computer monitor is the same picture as VGA's).
@@ -426,6 +429,35 @@ Console timing 11. Those 256 lines are taller than the monitor's 240-line pictur
 8 run past it; **Picture height** 1 fits them in. px68k's own menu (F12) is 800×600, and after a reset from that menu px68k may keep sending
 800×600 with the picture in the top left corner; restart the content if that happens. The research behind
 this preset is in the repository (`docs/sources/x68000-video.md`, `docs/sources/x68000-monitors.md`).
+
+## Arcade 31 kHz monitor
+
+`systems/arcade-31khz` is for Naomi and Atomiswave games (Flycast), whose boards drove 31 kHz monitors: 640×480
+with every line drawn once, not the 240 lines of a 15 kHz board. The monitor is the Nanao MS-2931, Sega's
+29-inch monitor for 15, 24 and 31 kHz, described from Eizo's service manual (1999):
+
+- Tube: Toshiba A68LBT696X, a slot mask with a trio pitch of 0.8 mm across and 0.6 mm down. That is 507 trios
+  down the screen: 2.1 screen pixels each at 1080p, where the mask shows at about half strength, 2.8 at 1440p,
+  4.3 at 4K.
+- Screen 540.8 × 405.6 mm, with the picture set 5 mm inside its edges, as the manual says to adjust it.
+- White at x 0.285, y 0.285, about 9700 K: bluer than a PC monitor's. The glass's curvature comes from its
+  radii in the manual (2400 and 2440 mm), seen from 70 cm.
+- 480 lines are 0.82 mm apart, about as far as the trios. The lines merge on mid-tones and white and show
+  faintly in dark areas only.
+
+Not in the manual, so taken from elsewhere: the beam spot (the 1084S's, which was calibrated on a photo, made
+larger by the ratio of the two screens: 0.57 mm on dark, 1.33 mm on white), its growth in the corners, the
+misconvergence (a third of the manual's limits) and the glow. If you know this monitor and the lines look too
+weak or too strong, **Spot size in dark areas / on white** are the two values to change.
+
+**Internal resolution.** The board's picture is always 640×480. A frame of a whole multiple of 480 lines
+(1280×960, 1920×1440, 2560×1920) is read as that picture at a higher internal resolution: still 480 lines on
+the tube, with smoother edges. Other sizes (960×720, 1440×1080) are drawn line for line, finer than the monitor
+was. Vertical games are rotated by RetroArch, with the lines and the mask, like a monitor turned on its side.
+
+**Around the tube** draws the PC monitor's casing around this tube: no arcade cabinet is drawn.
+
+Sources, what was worked out and what was not found: `docs/sources/arcade-31khz-monitor.md` in the repository.
 
 ## HDR
 

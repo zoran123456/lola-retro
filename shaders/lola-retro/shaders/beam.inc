@@ -95,16 +95,22 @@ void main()
         float px = tc.x * W;
         int j0 = int(floor(px - 3.0 * sHi));
         int j1 = int(floor(px + 3.0 * sHi));
+        // 24 steps at most. A spot wider than that in pixels (a 29-inch tube at 4x internal resolution
+        // or more) takes its pixels in groups of st, each read at its middle: the loop used to stop at
+        // the 24th pixel, which cut the right side of the spot off.
+        int st = (j1 - j0) / 24 + 1;
+        float fst = float(st);
         for (int k = 0; k < 24; k++)
         {
-            int j = j0 + k;
+            int j = j0 + k * st;
             if (j > j1) break;
             float fj = float(j);
             // the pixel's value (outside the line: black border)
-            float u = own ? (floor((fj + 0.5) * spp) + 0.5) / DW : (fj + 0.5) / W;
+            float fc = fj + 0.5 * fst;
+            float u = own ? (floor(fc * spp) + 0.5) / DW : fc / W;
             vec3 b = pow(clamp(textureLod(LR_Decoded, vec2(u, tc.y), 0.0).rgb, 0.0, 1.0), vec3(0.5 * global.LR_GAMMA));
             vec3 sg = mix(vec3(sLo), vec3(sHi), b);
-            vec3 zl = (fj - px) / sg, zr = (fj + 1.0 - px) / sg;
+            vec3 zl = (fj - px) / sg, zr = (fj + fst - px) / sg;
             vec3 l = b * b * (gaussCdf(zr) - gaussCdf(zl));
             acc += l;
             inv += l / sg;
@@ -148,8 +154,10 @@ void main()
         spot = (isum > 1e-9 && sHi > sLo) ? clamp((lsum / isum - sLo) / (sHi - sLo), 0.0, 1.0) : 0.0;
     }
 
-    // misconvergence: red and blue land a fraction of a pixel off green, more toward the edges
-    float conv = clamp(global.LR_CONV * (0.35 + 0.65 * cx * abs(cx)) * vConvW / 320.0, -1.0, 1.0);
+    // misconvergence: red and blue land a fraction of a pixel off green, more toward the edges.
+    // At most one console pixel: vScale frame pixels of an upscaled frame (the limit used to be one
+    // frame pixel, so the error shrank as the internal resolution went up).
+    float conv = clamp(global.LR_CONV * (0.35 + 0.65 * cx * abs(cx)) * vConvW / 320.0, -vScale, vScale);
     float sh = conv * params.OriginalSize.z;
     acc.r -= dacc.r * sh;
     acc.b += dacc.b * sh;

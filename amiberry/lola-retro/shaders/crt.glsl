@@ -28,6 +28,7 @@ const float LR_GHOST = 0.03;
 const float LR_HIRES = 0.0;
 const float LR_MASK_TRIADS = 470.0;
 const float LR_MON_MM = 1.0;
+const float LR_MON_PITCH_V = 0.0;
 const float LR_SHARP = 0.1;
 const float LR_SIG_HI = 0.42;
 const float LR_SIG_LO = 0.2;
@@ -213,7 +214,8 @@ float hash13(vec3 p3)
 // ---------------------------------------------------------------------------
 // Console ids: 1 SNES/NES, 2 Mega Drive H40, 3 Mega Drive H32 and Master System, 4 PlayStation,
 // 5 PlayStation 2, 6 Amiga, 7 PC VGA (also the PC-98's 640x400), 8 Arcade 15 kHz, 9 Arcade 24 kHz,
-// 10 Sharp X68000 on its own monitor, 11 the same with 256-line frames at 15 kHz (see x68Raster).
+// 10 Sharp X68000 on its own monitor, 11 the same with 256-line frames at 15 kHz (see x68Raster),
+// 12 Arcade 31 kHz (Naomi, Atomiswave: 640x480, every line once, see upscaleOf).
 // Other systems use the id with their timing (PC Engine, Saturn, N64: 4).
 
 float autoConsole(vec2 s)
@@ -259,7 +261,10 @@ void consoleTable(float id, out vec4 a, out vec4 b, out float c)
     else if (id < 7.5) { a = vec4(12.5875, 12.5875, 320.0, 1.0);  b = vec4(0.5, 0.75, 0.75, 0.875);                c = 0.0; }
     else if (id < 8.5) { a = vec4(6.711647, 6.711647, 320.0, 0.0); b = vec4(0.5, 0.75, 0.5, 0.5);                  c = 0.0; }
     else if (id < 9.5) { a = vec4(16.0, 16.0, 496.0, 2.0);        b = vec4(0.5, 0.75, 0.75, 0.875);                c = 0.0; }
-    else               { a = vec4(34.78, 34.78, 768.0, 3.0);      b = vec4(0.5, 0.75, 0.75, 0.875);                c = 0.0; }
+    else if (id < 11.5) { a = vec4(34.78, 34.78, 768.0, 3.0);     b = vec4(0.5, 0.75, 0.75, 0.875);                c = 0.0; }
+    // Arcade 31 kHz: the Naomi's and the Dreamcast's VGA mode, 640 pixels at 27 MHz (Flycast, spg.cpp:
+    // PIXEL_CLOCK, not halved in the VGA mode), on a monitor's raster like VGA's (every line once)
+    else               { a = vec4(27.0, 27.0, 640.0, 1.0);        b = vec4(0.5, 0.75, 0.75, 0.875);                c = 0.0; }
 }
 
 // TV timings (and auto): everything but the Amiga, VGA, 24 kHz arcade and X68000 (6, 7, 9, 10, 11)
@@ -302,6 +307,14 @@ vec3 x68Raster(float rows, float id)
 float upscaleOf(vec2 orig)
 {
     float id = LR_CONSOLE;
+    // Arcade 31 kHz: the board's picture is always 640x480 (Naomi, Atomiswave), so a frame of a
+    // whole multiple of 480 lines is that picture at a higher internal resolution. Any other height
+    // (Flycast's 960x720, 1440x1080) is drawn line for line, as it comes.
+    if (id > 11.5)
+    {
+        float k = floor(orig.y / 480.0 + 0.5);
+        return (k > 1.5 && k * 480.0 == orig.y) ? k : 1.0;
+    }
     bool tv = tvTiming(id);                              // VGA, Amiga and 24 kHz modes are never scaled
     // 480i class: PS2 by hand, or any TV timing with Frames over 300 lines 1 or 2; otherwise 240p class
     bool il = tv && (LR_HIRES > 0.5 || (id > 4.5 && id < 5.5));
@@ -370,8 +383,8 @@ Timing getTiming(vec2 orig, uint frameCount)
     // stays as it is. Passes read the cable from here (t.cable), never from Cable directly.
     t.monitor = (LR_HIRES > 1.5 && tvTiming(id) && nat.y > 300.0) ? 1.0 : 0.0;
     if (t.monitor > 0.5) id = 7.0;
-    bool x68 = id > 9.5;                                // the X68000's monitor: RGB only
-    t.cable = (t.monitor > 0.5 || x68) ? 3.0 : LR_CABLE;
+    bool x68 = id > 9.5 && id < 11.5;                   // the X68000's monitor: RGB only
+    t.cable = (t.monitor > 0.5 || x68 || id > 11.5) ? 3.0 : LR_CABLE;   // these monitors: RGB only
     vec4 a; vec4 b; float c;
     consoleTable(id, a, b, c);
     t.id = id;
@@ -400,7 +413,7 @@ Timing getTiming(vec2 orig, uint frameCount)
     float cls = orig.x < 480.0 ? 1.0 : (orig.x < 960.0 ? 2.0 : 4.0);
     if (amiga) t.pclk = base * (320.0 * cls) / a.z;
     // SVGA modes run faster lines: VESA 75 Hz clocks (800x600 49.5 MHz, 1024x768 78.75 MHz)
-    if (t.scan > 0.5 && t.scan < 1.5 && orig.x > 720.0) t.pclk = 78.75 * orig.x * orig.y / (1024.0 * 768.0);
+    if (t.scan > 0.5 && t.scan < 1.5 && orig.x > 720.0 && id < 11.5) t.pclk = 78.75 * orig.x * orig.y / (1024.0 * 768.0);
     // the computer monitor: an upscaled frame runs at its native mode's clock (k pixels per pixel)
     if (t.monitor > 0.5) t.pclk = (nat.x > 720.0 ? 78.75 * nat.x * nat.y / (1024.0 * 768.0) : base * nat.x / a.z) * t.scale;
     // X68000: the window's pixels across the mode's active line time
@@ -648,6 +661,7 @@ float phosphorSet(Timing t)
 {
     if (t.monitor > 0.5) return 1.0;                  // the computer monitor (Frames over 300 lines 2)
     if (LR_PHOS > 0.5) return LR_PHOS;
+    if (t.id > 11.5) return 4.0;                      // the arcade 31 kHz monitor (Japanese)
     if (t.scan > 0.5 && t.scan < 1.5) return 1.0;   // PC monitors: sRGB was defined from them
     if (t.id > 7.5) return 4.0;                       // arcade monitors, the X68000's (Japanese)
     return t.pal > 0.5 ? 3.0 : 2.0;
@@ -832,18 +846,25 @@ vec3 stripes(float x)
     return m;
 }
 
-// Slot mask: horizontal breaks, staggered per triad column
-float slotGate(float x, float y)
+// Slot mask: horizontal breaks, staggered per triad column. per: the slots' vertical pitch in trio
+// widths. 2 unless the tube gives its own (Slot mask: vertical pitch): the Nanao MS-2931's is 0.6 mm
+// on a 0.8 mm trio (docs/sources/arcade-31khz-monitor.md).
+float slotGate(float x, float y, float per)
 {
-    float yy = fract(y * 0.5 + mod(floor(x), 2.0) * 0.5);
+    float yy = fract(y / per + mod(floor(x), 2.0) * 0.5);
     return smoothstep(0.0, 0.12, yy) * smoothstep(1.0, 0.88, yy);
 }
+// The slots' share of the light on average, for where they are finer than the screen can show
+const float SLOT_AVG = 0.31 / 0.367;
 
 // The mask at 2 points across a screen pixel, or 2x2 for the slot and dot masks (a and b are the
 // corners), to keep moire down. The CRT pass takes each point's light through the display's
 // shoulder before averaging them (see there). Parts that only depend on x are evaluated once per
 // column. Returns how many points s holds.
-int maskPoints(vec2 a, vec2 b, float mt, inout vec3 s[4])
+// per: the slot mask's vertical pitch in trio widths; fade: 1, or less where that pitch is too fine
+// for the screen's pixels (below about 2.6 of them: the breaks then beat against the pixel rows, so
+// they fade to their average, as the whole mask does on a fine trio pitch).
+int maskPoints(vec2 a, vec2 b, float mt, float per, float fade, inout vec3 s[4])
 {
     if (mt > 3.5) { s[0] = vec3(lenticular(a.x)); s[1] = vec3(lenticular(b.x)); return 2; }
     if (mt > 2.5)
@@ -854,7 +875,9 @@ int maskPoints(vec2 a, vec2 b, float mt, inout vec3 s[4])
     vec3 ma = stripes(a.x), mb = stripes(b.x);
     if (mt > 1.5)
     {
-        s[0] = ma * slotGate(a.x, a.y); s[1] = ma * slotGate(a.x, b.y); s[2] = mb * slotGate(b.x, a.y); s[3] = mb * slotGate(b.x, b.y);
+        vec4 gt = vec4(slotGate(a.x, a.y, per), slotGate(a.x, b.y, per), slotGate(b.x, a.y, per), slotGate(b.x, b.y, per));
+        if (fade < 1.0) gt = mix(vec4(SLOT_AVG), gt, fade);
+        s[0] = ma * gt.x; s[1] = ma * gt.y; s[2] = mb * gt.z; s[3] = mb * gt.w;
         return 4;
     }
     s[0] = ma; s[1] = mb;
@@ -868,8 +891,9 @@ int maskPoints(vec2 a, vec2 b, float mt, inout vec3 s[4])
 // of the slot and dot masks are moved to whole pixels too, a slot's break and a dot's centre onto
 // the middle of a pixel row. Two pixels cannot hold three stripes: w = 2 is magenta and green
 // (a checkerboard for the dot mask), as in pixel masks for low-resolution screens.
-// p: the screen pixel. Returns the mask, and in a its average (the masks' averages on the tube).
-vec4 pixelMask(vec2 p, float w, float mt)
+// p: the screen pixel; per: the slot mask's vertical pitch in trio widths (the whole number of pixel
+// rows nearest it, 2 at least). Returns the mask, and in a its average (the masks' averages on the tube).
+vec4 pixelMask(vec2 p, float w, float mt, float per)
 {
     vec3 m = vec3(0.0);
     if (mt > 2.5 && w > 2.5)
@@ -895,9 +919,11 @@ vec4 pixelMask(vec2 p, float w, float mt)
     }
     if (mt > 1.5 && mt < 2.5)
     {
-        // slot mask: the breaks, half a slot (w rows) lower from one triad column to the next
+        // slot mask: the breaks, half a slot (w rows for a pitch of two trios) lower from one triad
+        // column to the next
         float x = (p.x + 0.5) / w, g = 0.0;
-        for (float j = 0.125; j < 1.0; j += 0.25) g += slotGate(x, (p.y + j - 0.5) / w);
+        float hr = 0.5 * max(2.0, floor(w * per + 0.5));   // half the slots' pitch in pixel rows
+        for (float j = 0.125; j < 1.0; j += 0.25) g += slotGate(x, (p.y + j - 0.5) / hr, 2.0);
         m *= 0.25 * g;
         avg *= w < 2.5 ? 0.88 : 0.31 / 0.367;
     }
@@ -2797,6 +2823,8 @@ void lr_main()
         // on screen pixels (pixelMask): w pixels per triad, or with 1 (auto) the whole number nearest
         // the tube's own pitch; it does not need to fade out on fine pitches
         bool onPx = LR_MASK_PX > 0.5 && mt > 0.5 && mt < 3.5;
+        // the slot mask's vertical pitch in trio widths: the tube's own where it is given in mm
+        float slotPer = (mm && LR_MON_PITCH_V > 0.0) ? LR_MON_PITCH_V / LR_MON_PITCH : 2.0;
         float wPx = LR_MASK_PX < 1.5 ? clamp(floor(pitchPx + 0.5), 2.0, 6.0) : LR_MASK_PX;
         float str = LR_MASK_STR * (onPx ? 1.0 : smoothstep(1.6, 2.6, pitchPx));
         // the mask's share of the light at each of its points in this pixel (one without a mask or on
@@ -2809,7 +2837,7 @@ void lr_main()
             float avg;
             if (onPx)
             {
-                vec4 pm = pixelMask(floor(vTexCoord * LR_OutputSize.xy), wPx, mt);
+                vec4 pm = pixelMask(floor(vTexCoord * LR_OutputSize.xy), wPx, mt, slotPer);
                 mf[0] = pm.rgb;
                 avg = pm.a;
             }
@@ -2817,7 +2845,7 @@ void lr_main()
             {
                 vec2 mp = ut * tubePx / pitchPx;
                 float dp = 0.25 / pitchPx;
-                nm = maskPoints(mp - dp, mp + dp, mt, mf);
+                nm = maskPoints(mp - dp, mp + dp, mt, slotPer, smoothstep(1.6, 2.6, slotPer * pitchPx), mf);
                 avg = mt < 1.5 ? 0.367 : (mt < 2.5 ? 0.31 : (mt < 3.5 ? 0.19 : 0.84));
             }
             for (int i = 0; i < 4; i++) mf[i] = mix(vec3(1.0 - str), vec3(1.0), mf[i]) / mix(1.0 - str, 1.0, avg);

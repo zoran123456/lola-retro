@@ -179,7 +179,8 @@ float hash13(vec3 p3)
 // ---------------------------------------------------------------------------
 // Console ids: 1 SNES/NES, 2 Mega Drive H40, 3 Mega Drive H32 and Master System, 4 PlayStation,
 // 5 PlayStation 2, 6 Amiga, 7 PC VGA (also the PC-98's 640x400), 8 Arcade 15 kHz, 9 Arcade 24 kHz,
-// 10 Sharp X68000 on its own monitor, 11 the same with 256-line frames at 15 kHz (see x68Raster).
+// 10 Sharp X68000 on its own monitor, 11 the same with 256-line frames at 15 kHz (see x68Raster),
+// 12 Arcade 31 kHz (Naomi, Atomiswave: 640x480, every line once, see upscaleOf).
 // Other systems use the id with their timing (PC Engine, Saturn, N64: 4).
 
 float autoConsole(vec2 s)
@@ -225,7 +226,10 @@ void consoleTable(float id, out vec4 a, out vec4 b, out float c)
     else if (id < 7.5) { a = vec4(12.5875, 12.5875, 320.0, 1.0);  b = vec4(0.5, 0.75, 0.75, 0.875);                c = 0.0; }
     else if (id < 8.5) { a = vec4(6.711647, 6.711647, 320.0, 0.0); b = vec4(0.5, 0.75, 0.5, 0.5);                  c = 0.0; }
     else if (id < 9.5) { a = vec4(16.0, 16.0, 496.0, 2.0);        b = vec4(0.5, 0.75, 0.75, 0.875);                c = 0.0; }
-    else               { a = vec4(34.78, 34.78, 768.0, 3.0);      b = vec4(0.5, 0.75, 0.75, 0.875);                c = 0.0; }
+    else if (id < 11.5) { a = vec4(34.78, 34.78, 768.0, 3.0);     b = vec4(0.5, 0.75, 0.75, 0.875);                c = 0.0; }
+    // Arcade 31 kHz: the Naomi's and the Dreamcast's VGA mode, 640 pixels at 27 MHz (Flycast, spg.cpp:
+    // PIXEL_CLOCK, not halved in the VGA mode), on a monitor's raster like VGA's (every line once)
+    else               { a = vec4(27.0, 27.0, 640.0, 1.0);        b = vec4(0.5, 0.75, 0.75, 0.875);                c = 0.0; }
 }
 
 // TV timings (and auto): everything but the Amiga, VGA, 24 kHz arcade and X68000 (6, 7, 9, 10, 11)
@@ -268,6 +272,14 @@ vec3 x68Raster(float rows, float id)
 float upscaleOf(vec2 orig)
 {
     float id = LR_CONSOLE;
+    // Arcade 31 kHz: the board's picture is always 640x480 (Naomi, Atomiswave), so a frame of a
+    // whole multiple of 480 lines is that picture at a higher internal resolution. Any other height
+    // (Flycast's 960x720, 1440x1080) is drawn line for line, as it comes.
+    if (id > 11.5)
+    {
+        float k = floor(orig.y / 480.0 + 0.5);
+        return (k > 1.5 && k * 480.0 == orig.y) ? k : 1.0;
+    }
     bool tv = tvTiming(id);                              // VGA, Amiga and 24 kHz modes are never scaled
     // 480i class: PS2 by hand, or any TV timing with Frames over 300 lines 1 or 2; otherwise 240p class
     bool il = tv && (LR_HIRES > 0.5 || (id > 4.5 && id < 5.5));
@@ -336,8 +348,8 @@ Timing getTiming(vec2 orig, uint frameCount)
     // stays as it is. Passes read the cable from here (t.cable), never from Cable directly.
     t.monitor = (LR_HIRES > 1.5 && tvTiming(id) && nat.y > 300.0) ? 1.0 : 0.0;
     if (t.monitor > 0.5) id = 7.0;
-    bool x68 = id > 9.5;                                // the X68000's monitor: RGB only
-    t.cable = (t.monitor > 0.5 || x68) ? 3.0 : LR_CABLE;
+    bool x68 = id > 9.5 && id < 11.5;                   // the X68000's monitor: RGB only
+    t.cable = (t.monitor > 0.5 || x68 || id > 11.5) ? 3.0 : LR_CABLE;   // these monitors: RGB only
     vec4 a; vec4 b; float c;
     consoleTable(id, a, b, c);
     t.id = id;
@@ -366,7 +378,7 @@ Timing getTiming(vec2 orig, uint frameCount)
     float cls = orig.x < 480.0 ? 1.0 : (orig.x < 960.0 ? 2.0 : 4.0);
     if (amiga) t.pclk = base * (320.0 * cls) / a.z;
     // SVGA modes run faster lines: VESA 75 Hz clocks (800x600 49.5 MHz, 1024x768 78.75 MHz)
-    if (t.scan > 0.5 && t.scan < 1.5 && orig.x > 720.0) t.pclk = 78.75 * orig.x * orig.y / (1024.0 * 768.0);
+    if (t.scan > 0.5 && t.scan < 1.5 && orig.x > 720.0 && id < 11.5) t.pclk = 78.75 * orig.x * orig.y / (1024.0 * 768.0);
     // the computer monitor: an upscaled frame runs at its native mode's clock (k pixels per pixel)
     if (t.monitor > 0.5) t.pclk = (nat.x > 720.0 ? 78.75 * nat.x * nat.y / (1024.0 * 768.0) : base * nat.x / a.z) * t.scale;
     // X68000: the window's pixels across the mode's active line time
@@ -614,6 +626,7 @@ float phosphorSet(Timing t)
 {
     if (t.monitor > 0.5) return 1.0;                  // the computer monitor (Frames over 300 lines 2)
     if (LR_PHOS > 0.5) return LR_PHOS;
+    if (t.id > 11.5) return 4.0;                      // the arcade 31 kHz monitor (Japanese)
     if (t.scan > 0.5 && t.scan < 1.5) return 1.0;   // PC monitors: sRGB was defined from them
     if (t.id > 7.5) return 4.0;                       // arcade monitors, the X68000's (Japanese)
     return t.pal > 0.5 ? 3.0 : 2.0;
@@ -724,16 +737,22 @@ void lr_main()
         float px = tc.x * W;
         int j0 = int(floor(px - 3.0 * sHi));
         int j1 = int(floor(px + 3.0 * sHi));
+        // 24 steps at most. A spot wider than that in pixels (a 29-inch tube at 4x internal resolution
+        // or more) takes its pixels in groups of st, each read at its middle: the loop used to stop at
+        // the 24th pixel, which cut the right side of the spot off.
+        int st = (j1 - j0) / 24 + 1;
+        float fst = float(st);
         for (int k = 0; k < 24; k++)
         {
-            int j = j0 + k;
+            int j = j0 + k * st;
             if (j > j1) break;
             float fj = float(j);
             // the pixel's value (outside the line: black border)
-            float u = own ? (floor((fj + 0.5) * spp) + 0.5) / DW : (fj + 0.5) / W;
+            float fc = fj + 0.5 * fst;
+            float u = own ? (floor(fc * spp) + 0.5) / DW : fc / W;
             vec3 b = pow(clamp(textureLod(LR_DecodedTexture, vec2(u, tc.y), 0.0).rgb, 0.0, 1.0), vec3(0.5 * LR_GAMMA));
             vec3 sg = mix(vec3(sLo), vec3(sHi), b);
-            vec3 zl = (fj - px) / sg, zr = (fj + 1.0 - px) / sg;
+            vec3 zl = (fj - px) / sg, zr = (fj + fst - px) / sg;
             vec3 l = b * b * (gaussCdf(zr) - gaussCdf(zl));
             acc += l;
             inv += l / sg;
@@ -773,8 +792,10 @@ void lr_main()
         spot = (isum > 1e-9 && sHi > sLo) ? clamp((lsum / isum - sLo) / (sHi - sLo), 0.0, 1.0) : 0.0;
     }
 
-    // misconvergence: red and blue land a fraction of a pixel off green, more toward the edges
-    float conv = clamp(LR_CONV * (0.35 + 0.65 * cx * abs(cx)) * vConvW / 320.0, -1.0, 1.0);
+    // misconvergence: red and blue land a fraction of a pixel off green, more toward the edges.
+    // At most one console pixel: vScale frame pixels of an upscaled frame (the limit used to be one
+    // frame pixel, so the error shrank as the internal resolution went up).
+    float conv = clamp(LR_CONV * (0.35 + 0.65 * cx * abs(cx)) * vConvW / 320.0, -vScale, vScale);
     float sh = conv * LR_OriginalSize.z;
     acc.r -= dacc.r * sh;
     acc.b += dacc.b * sh;

@@ -377,7 +377,7 @@ def shader_lab():
 FIELDS = {
     "LR_CONSOLE": ("consoleTiming", ("ConsoleTiming", ["Auto", "NES and SNES", "Mega Drive H40", "Mega Drive H32 and Master System",
                                                        "PlayStation", "PlayStation 2", "Amiga", "PC VGA", "Arcade 15 kHz",
-                                                       "Arcade 24 kHz", "X68000", "X68000 256 lines at 15 kHz"])),
+                                                       "Arcade 24 kHz", "X68000", "X68000 256 lines at 15 kHz", "Arcade 31 kHz"])),
     "LR_NORM": ("tvStandard", ("TvStandard", ["Auto", "NTSC", "PAL"])),
     "LR_HIRES": ("framesOver300Lines", ("TallFrames", ["Auto", "Interlaced", "PC monitor"])),
     "LR_CABLE": ("cable", ("Cable", ["RF", "Composite", "S-Video", "RGB", "TV show"])),
@@ -425,6 +425,7 @@ FIELDS = {
     "LR_MON_MM": ("monitorInMillimetres", bool),
     "LR_MON_SIZE": ("monitorSize", int),
     "LR_MON_PITCH": ("dotPitch", None),
+    "LR_MON_PITCH_V": ("slotPitchVertical", None),
     "LR_MON_SPOT_LO": ("spotSizeDark", None),
     "LR_MON_SPOT_HI": ("spotSizeWhite", None),
     "LR_MON_CORNER": ("spotSizeCorners", None),

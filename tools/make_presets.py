@@ -230,6 +230,24 @@ SYSTEMS = {
     "amiga": ("amiga-1084s", dict(LR_CONSOLE=6)),
     # px68k: 15 kHz games with gaps, 31 kHz games (most of them) and the 768x512 prompt without
     "x68000": ("x68000-monitor", dict()),
+    # Arcade 31 kHz (Naomi, Atomiswave; forum post 55): the Nanao MS-2931, Sega's 29-inch monitor for 15, 24
+    # and 31 kHz, from Eizo's service manual (Ver. 10, 1999): Toshiba A68LBT696X, trio pitch 0.8 mm across
+    # and 0.6 mm down (a slot mask: stripes in line, breaks every 0.6 mm), screen 540.8 x 405.6 mm, white
+    # x 0.285 y 0.285 (9700 K), the picture set 5 mm inside the screen's edges, the screen's radii 2400 and
+    # 2440 mm. Monitor size 28 is the model's 27-inch face, 548.6 x 411.5 mm, 1.4% over the manual's, so
+    # the pitches are 1.4% up too (0.81, 0.61). Curvature from the radii, seen from 70 cm: the corners sit
+    # 15 mm behind the middle of the top edge, 2% of the half height nearer the middle; 1% for the sides.
+    # Console timing 12: 640x480 with every line drawn once, whole multiples of 480 lines read as that
+    # picture at a higher internal resolution.
+    # Not in the manual (docs/sources/arcade-31khz-monitor.md): the spot, here the 1084S's (calibrated on
+    # a photo) times the screens' diagonals, 676 / 330 mm; its growth in the corners, the 1084S's; the
+    # misconvergence, a third of the manual's limits (1.5 mm in the middle, 3 mm in the corners); glow,
+    # dark edges and afterglow as arcade-15khz; the corners' radius.
+    "arcade-31khz": ("pc-monitor-vga", dict(
+        LR_CONSOLE=12, LR_MON_SIZE=28, LR_MON_PITCH=0.81, LR_MON_PITCH_V=0.61, LR_MASK_TYPE=2, LR_MASK_STR=0.5,
+        LR_MON_SPOT_LO=0.57, LR_MON_SPOT_HI=1.33, LR_MON_CORNER=1.5, LR_CONV=0.3, LR_WHITE=9700,
+        LR_CURV_X=0.01, LR_CURV_Y=0.02, LR_OVERSCAN=-0.02, LR_OVERSCAN_V=-0.005,
+        LR_PERSIST=0.05, LR_GLOW=0.06, LR_VIGNETTE=0.25, LR_REFLECT=0.2)),
     "dos-pc": ("pc-monitor-vga", dict()),
     # The PC-98's 640x400 on its computer monitor: the same 400 sharp lines as VGA's 640x400 on a
     # 15-inch PC monitor (24 or 31 kHz makes no difference to the picture, the line spacing comes
@@ -290,10 +308,10 @@ def with_show_lines(passes):
 # common.inc: 4 per pixel of a 320-wide console), so a core running at a higher internal
 # resolution costs no more than a native one. The PC and Amiga presets keep 4 samples per frame
 # pixel (their beam pass reads every pixel exactly); they never get upscaled frames.
-def with_fixed_samples(passes):
+def with_fixed_samples(passes, samples=1280):
     old = "scale_type_x0 = source\nscale_x0 = 4.0\n"
     assert old in passes
-    return passes.replace(old, "scale_type_x0 = absolute\nscale_x0 = 1280\n")
+    return passes.replace(old, f"scale_type_x0 = absolute\nscale_x0 = {samples}\n")
 
 
 # Presets with their own pass chain
@@ -302,6 +320,16 @@ for _name in ("consumer-tv-composite", "consumer-tv-scart-rgb", "trinitron-s-vid
               "studio-monitor-composite",
               "old-tv-rf", "crt-projector"):
     PRESET_PASSES[_name] = with_fixed_samples(PASSES)
+
+# System presets with a chain of their own. Arcade 31 kHz: 2560 samples per line, 4 per pixel of the
+# board's 640, whatever the frame's width, as the TV presets do with 1280: its frames come upscaled (3D
+# games), and 4 samples per frame pixel would make the decoder 10240 wide at 4x. Every frame pixel still
+# gets a sample of its own up to 4x.
+SYSTEM_PASSES = {"arcade-31khz": with_fixed_samples(PASSES, 2560)}
+
+
+def system_passes(name, device):
+    return SYSTEM_PASSES.get(name, PRESET_PASSES.get(device, PASSES))
 
 
 # Every RetroArch preset starts with the native pass (native.slang): for a core running at a
@@ -348,7 +376,7 @@ VARIANTS = {
 # back every frame) and nothing around the tube (Around the tube stays black).
 def lite_passes(passes, values):
     n = int(re.search(r"^shaders = (\d+)", passes, flags=re.M).group(1))
-    mm = round(values["LR_CONSOLE"]) in (7, 10, 11) or values["LR_MON_MM"] > 0.5
+    mm = round(values["LR_CONSOLE"]) in (7, 10, 11, 12) or values["LR_MON_MM"] > 0.5
     beam = "2.0" if mm else "1.0"
     p, k = re.subn(r"^scale_type_x(\d+) = absolute\nscale_x\1 = 8192$",
                    rf"scale_type_x\1 = viewport\nscale_x\1 = {beam}", passes, flags=re.M)
@@ -386,7 +414,7 @@ def super_lite_passes(passes, values):
     p = lite_passes(passes, values)
     p = re.sub(r"^scale_type_x(\d+) = viewport\nscale_x\1 = 2\.0$", r"scale_type_x\1 = viewport\nscale_x\1 = 1.0",
                p, flags=re.M)
-    if not (values["LR_MON_MM"] > 0.5 and round(values["LR_CONSOLE"]) not in (7, 10, 11)):
+    if not (values["LR_MON_MM"] > 0.5 and round(values["LR_CONSOLE"]) not in (7, 10, 11, 12)):
         p, k = re.subn(r"^scale_type1 = source\nscale1 = 1\.0$",
                        "scale_type_x1 = source\nscale_x1 = 0.5\nscale_type_y1 = source\nscale_y1 = 1.0", p, flags=re.M)
         p, g = re.subn(r"^scale_x2 = 0\.125$", "scale_x2 = 0.25", p, flags=re.M)
@@ -413,7 +441,7 @@ def main():
     for folder, variant in (("systems/curved", {}), ("systems/flat", FLAT)):
         for name, (device, over) in SYSTEMS.items():
             dev = PRESETS[device]
-            passes = with_native_pass(PRESET_PASSES.get(device, PASSES)).replace("../shaders/", "../../shaders/")
+            passes = with_native_pass(system_passes(name, device)).replace("../shaders/", "../../shaders/")
             write(folder, name, passes, {**BASE, **dev, **over, **variant})
     for folder, (variant, change) in VARIANTS.items():
         (PACK / folder).mkdir(parents=True, exist_ok=True)
@@ -425,7 +453,7 @@ def main():
     # the system presets in HDR (forum, StargazingDog): their device's HDR preset with the system's settings
     for folder, variant in (("hdr/systems/curved", HDR), ("hdr/systems/flat", {**FLAT, **HDR})):
         for name, (device, over) in SYSTEMS.items():
-            passes = hdr_passes(with_native_pass(PRESET_PASSES.get(device, PASSES)))
+            passes = hdr_passes(with_native_pass(system_passes(name, device)))
             write(folder, name, passes.replace("../../shaders/", "../../../shaders/"),
                   {**BASE, **PRESETS[device], **over, **variant})
     for folder, variant in (("lite/curved", {}), ("lite/flat", FLAT)):
@@ -436,7 +464,7 @@ def main():
     for folder, variant in (("lite/systems/curved", {}), ("lite/systems/flat", FLAT)):
         for name, (device, over) in SYSTEMS.items():
             values = {**BASE, **PRESETS[device], **over, **variant}
-            passes = lite_passes(with_native_pass(PRESET_PASSES.get(device, PASSES)), values)
+            passes = lite_passes(with_native_pass(system_passes(name, device)), values)
             write(folder, name, passes.replace("../shaders/", "../../../shaders/"), values)
     for folder, variant in (("super-lite/curved", {}), ("super-lite/flat", FLAT)):
         for name, over in PRESETS.items():
@@ -446,7 +474,7 @@ def main():
     for folder, variant in (("super-lite/systems/curved", {}), ("super-lite/systems/flat", FLAT)):
         for name, (device, over) in SYSTEMS.items():
             values = {**BASE, **PRESETS[device], **over, **variant}
-            passes = super_lite_passes(PRESET_PASSES.get(device, PASSES), values)
+            passes = super_lite_passes(system_passes(name, device), values)
             write(folder, name, passes.replace("../shaders/", "../../../shaders/"), values)
 
 
