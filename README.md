@@ -156,6 +156,7 @@ real monitor. The beam was calibrated on a photo of a real 1084S.
 
 `systems/arcade-31khz` is built the same way for Naomi and Atomiswave games, from Eizo's service manual of the
 Nanao MS-2931, Sega's 29-inch arcade monitor: a 0.8 mm slot mask and 480 lines, each drawn once.
+`systems/arcade-24khz` is the same monitor for Sega's 24 kHz boards (Model 1, 2 and 3).
 
 ![The same text on the 1084S in PAL and NTSC](docs/amiga-1084s-pal-ntsc.jpg)
 

@@ -44,6 +44,7 @@ see [Lite presets](#lite-presets); if that is still too slow, from `lola-retro/s
 | `dreamcast` | Dreamcast on a TV (for the VGA cable use `dos-pc`) | Consumer TV (Composite) | 5 |
 | `arcade-15khz` | 15 kHz arcade (CPS1/2, Neo Geo MVS, most 80s and 90s boards) | Amiga 1084S, set up as the arcade manuals say: the whole game on the glass, whatever its line count (Picture height 1) | 8 |
 | `arcade-31khz` | 31 kHz arcade (Naomi, Atomiswave) | Nanao MS-2931, Sega's 29-inch arcade monitor, from Eizo's service manual: a 0.8 mm slot mask, 480 lines, each drawn once (see [Arcade 31 kHz monitor](#arcade-31-khz-monitor)) | 12 |
+| `arcade-24khz` | 24 kHz arcade (Sega Model 1, 2 and 3: 496×384) | The same Nanao MS-2931 in its 24 kHz mode: 384 lines, each drawn once, further apart than the 480 of a 31 kHz game (see [Arcade 31 kHz monitor](#arcade-31-khz-monitor)) | 12 |
 | `amiga` | Amiga | Amiga 1084S | 6 |
 | `dos-pc` | DOS and Windows 9x | PC Monitor (VGA) | 7 |
 | `pc-98` | NEC PC-98 (640×400) | PC Monitor (VGA): 400 sharp lines on a computer monitor, as on the PC-98's own | 7 |
@@ -248,7 +249,7 @@ display. Space, Bouncing lines and Amiga demo take the most GPU time; on a slow 
 | 9 | Arcade 24 kHz | Medium-res arcade, e.g. Sega Model 2 at 496×384 progressive. |
 | 10 | Sharp X68000 | On its own monitor: up to 240 lines at 15 kHz (gaps between the lines), 256-line frames at 31 kHz with every line drawn twice (no gaps), taller frames line by line. RGB only. |
 | 11 | Sharp X68000, 256 lines at 15 kHz | The same, but 256-line frames at 15 kHz, for the few games that show a 256-line window there. |
-| 12 | Arcade 31 kHz | Naomi and Atomiswave: 640×480 with every line drawn once, on a monitor described in mm. A frame of a whole multiple of 480 lines is that picture at a higher internal resolution. RGB only. Never picked by auto. |
+| 12 | Arcade 31 kHz | Naomi and Atomiswave: 640×480 with every line drawn once, on a monitor described in mm. A frame of a whole multiple of 480 lines is that picture at a higher internal resolution. A 24 kHz board's 496×384 frame is drawn the same way, as 384 lines (`systems/arcade-24khz`). RGB only. Never picked by auto. |
 
 Systems that are not in the list use the id with the same timing: PC Engine, Saturn and Nintendo 64 use 4, the PC-98 uses 7
 (its 640×400 on a computer monitor is the same picture as VGA's).
@@ -456,6 +457,13 @@ weak or too strong, **Spot size in dark areas / on white** are the two values to
 (1280×960, 1920×1440, 2560×1920) is read as that picture at a higher internal resolution: still 480 lines on
 the tube, with smoother edges. Other sizes (960×720, 1440×1080) are drawn line for line, finer than the monitor
 was. Vertical games are rotated by RetroArch, with the lines and the mask, like a monitor turned on its side.
+
+**24 kHz games.** `systems/arcade-24khz` is the same monitor with the same values, for Sega's Model 1, 2 and 3
+boards (496×384). The MS-2931 took 15, 24 and 31 kHz, and its manual tests the 24 kHz mode with a Model 3
+board. The tube is described in mm, so a 384-line frame is drawn on the same height with the same beam: the
+lines are 1.03 mm apart instead of 0.82 and show more (about 8% on a 30% grey, against 1% at 480 lines). The two
+presets are the same but for their names; either draws both kinds of frame. A 15 kHz game is not right on
+them (a frame under 300 lines is drawn twice, as on VGA): use `systems/arcade-15khz`.
 
 **Around the tube** draws the PC monitor's casing around this tube: no arcade cabinet is drawn.
 

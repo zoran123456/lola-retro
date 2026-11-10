@@ -130,6 +130,12 @@ What follows (worked out):
   the same spot: checked offscreen, the lines' modulation is 28% at 5% of white, 20% at 10%, 8% at 30% and none
   on white (at 480 lines: 10%, 6%, 1%). So the lines show more at 24 kHz, as they should. A 15 kHz frame is
   not right on it: under 300 lines the VGA raster draws every line twice.
+- **`systems/arcade-24khz`** (2026-11-10, the author's decision): the same values and chain under the name
+  people look for. `make_presets.py` makes it from the same table entry, so the two cannot drift apart; the
+  generated files differ in their title line only. The lines are (405.6 - 10) / 384 = 1.03 mm apart.
+  Checked in RetroArch 1.22.2 (Vulkan, the image viewer, `test-images/arcade-496x384.png`): it loads with no
+  errors, as do its lite, super lite and HDR versions, and its screenshot is byte for byte `arcade-31khz`'s on
+  the same frame. Not checked with MAME and a Model 1 or 2 game.
 
 ## What the preset does
 
@@ -221,8 +227,8 @@ Not checked: with Flycast and a game (the core is not installed here); the HDR v
 
 ## Where the code uses it
 
-- `tools/make_presets.py`: `SYSTEMS["arcade-31khz"]`, `SYSTEM_PASSES` (2560 samples), the tubes in mm of the
-  lite presets.
+- `tools/make_presets.py`: `SYSTEMS["arcade-31khz"]` and `SYSTEMS["arcade-24khz"]` (the same entry), `SYSTEM_PASSES`
+  (2560 samples), the tubes in mm of the lite presets.
 - `shaders/lola-retro/shaders/common.inc`: Console timing 12 (`consoleTable`, `upscaleOf`, `getTiming`,
   `phosphorSet`), `LR_MON_PITCH_V` and the ranges.
 - `shaders/lola-retro/shaders/crt.inc`: `slotGate`, `maskPoints`, `pixelMask` (the vertical pitch and its fade).

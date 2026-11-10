@@ -248,12 +248,20 @@ SYSTEMS = {
         LR_MON_SPOT_LO=0.57, LR_MON_SPOT_HI=1.33, LR_MON_CORNER=1.5, LR_CONV=0.3, LR_WHITE=9700,
         LR_CURV_X=0.01, LR_CURV_Y=0.02, LR_OVERSCAN=-0.02, LR_OVERSCAN_V=-0.005,
         LR_PERSIST=0.05, LR_GLOW=0.06, LR_VIGNETTE=0.25, LR_REFLECT=0.2)),
+    # Arcade 24 kHz (Sega Model 1, 2 and 3: 496x384; forum post 66): the same monitor in its 24 kHz mode. The
+    # MS-2931 takes 15, 24 and 31 kHz, and its manual's second test signal is "Model 3 (24k)", 381 lines shown
+    # of 424; Model 3's standard cabinet had a 29-inch Nanao or Sanwa in "24K mode" (Sega's owner's manual of
+    # Harley-Davidson & L.A. Riders). The tube is in mm, so the same values draw a 496x384 frame as 384 lines
+    # over the same height: the lines lie further apart and show more than at 480. Filled in below, after
+    # this table: the same values as arcade-31khz, under the name people look for.
     "dos-pc": ("pc-monitor-vga", dict()),
     # The PC-98's 640x400 on its computer monitor: the same 400 sharp lines as VGA's 640x400 on a
     # 15-inch PC monitor (24 or 31 kHz makes no difference to the picture, the line spacing comes
     # from the picture height), so the PC monitor model, which also gives it an HDR version
     "pc-98": ("pc-monitor-vga", dict()),
 }
+
+SYSTEMS["arcade-24khz"] = SYSTEMS["arcade-31khz"]
 
 
 def fmt(v):
@@ -326,6 +334,7 @@ for _name in ("consumer-tv-composite", "consumer-tv-scart-rgb", "trinitron-s-vid
 # games), and 4 samples per frame pixel would make the decoder 10240 wide at 4x. Every frame pixel still
 # gets a sample of its own up to 4x.
 SYSTEM_PASSES = {"arcade-31khz": with_fixed_samples(PASSES, 2560)}
+SYSTEM_PASSES["arcade-24khz"] = SYSTEM_PASSES["arcade-31khz"]   # the same monitor, the same chain
 
 
 def system_passes(name, device):
