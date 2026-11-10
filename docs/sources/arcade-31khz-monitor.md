@@ -80,6 +80,57 @@ The MS-2931's test signals (2.6, Recommended Signal Timing Chart) are Sega's own
 - **The picture size confirms `arcade-monitors.md`**: the whole picture on the screen, with about 5 mm of
   black around it.
 
+## More manuals, from the forum (post 66, 2026-11-09)
+
+After v1.20 the same user posted links to Sega's and Sanwa's manuals. Read 2026-11-10, the scans by OCR; the
+29E31S's specification page was checked on the page image.
+
+**Sanwa, *Service Manual, Display Unit 29E31S*** (Sega's cover: 420-5827, "200-5827 ASSY CLR DSPL 29TYPE 31K
+100V, Sanwa, 73SX701Y22 tube"; 19 pages; http://shabazz.fr/wp-content/uploads/2020/06/Sega_Naomi_Universal_Cabinet_Sanwa_29e31s_manual.pdf,
+whose https certificate does not match the host). A 31 kHz-only monitor; the file's name gives it to the Naomi
+Universal cabinet. Section 1, Specification:
+
+| | Sanwa 29E31S | Nanao MS-2931 (above) |
+|---|---|---|
+| Tube | 29-inch, 108 degree deflection, "Full Square Picture Tube", 73SX701Y22 | Toshiba A68LBT696X |
+| Dot pitch | 0.80 mm at the centre, 0.96 mm at the corner, 0.64 mm vertical | 0.8, 0.9 at the edges, 0.6 |
+| Phosphor | "Y22" | not given |
+| Display screen size | 540.8 x 405.6 mm | the same |
+| Line rate | 31.5 kHz +-500 Hz; 55-70 Hz vertical | 15.75, 24.4, 31.5 kHz |
+| Misconvergence | 1.5, 2.5 and 3 mm in the same three zones | the same |
+| "Resolution" | 676 dots x 625 lines; "Clock Frequency: 20 MHz typ." | 676 x 676; 28.4 MHz at -3 dB |
+| White | x 0.285 +-0.02, y 0.285 +-0.02, "approx. 9700K" | the same |
+| Focus | "Adjust the focus of all over the screen to the optimum." (anode about 27 kV) | "To be adjusted best." |
+
+Its recommended signal timing is the Naomi's: 31.69 kHz, a line of 852 dots in 31.56 us with 640 dots shown
+in 23.70 us (87 dots before, 43 after, 82 of sync), which is 27.0 MHz; 480 lines shown of 530.
+
+**Sega, *NAOMI Service Manual*** (420-6455-01, 34 pages, https://segaretro.org/images/8/8c/NAOMI_Service_Manual_EN.pdf):
+"Horizontal scanning frequency: 15.85kHz / 31.69kHz", chosen with DIP switch 1 on the filter board; and for the
+C.R.T. test's monitor size screen: "Adjust so that the crosshatches do not go beyond the screen."
+
+**Sega owner's manuals** (no tube data): Harley-Davidson & L.A. Riders, standard type, a Model 3 game
+(https://segaretro.org/images/c/ca/HDaLAR_Model3_Manual_Standard.pdf): "29 inch color monitor", and "There are 2
+Monitor Manufacturers (NANAO and SANWA)", Nanao 200-5242-24-04 and Sanwa 200-5243-24, both "24K mode". World Series
+99, a Naomi game (https://backup.segakore.fr/sauservice/Manuals/MLB/MLB-UR.pdf): "Monitor: 29" Nanao monitor",
+"ASSY MONITOR 29TYPE 31K". New Astro City serviceman manual
+(http://shabazz.fr/wp-content/uploads/2021/10/Sega_New_Astro_City__Manual.pdf): a 29-inch monitor by Nanao or Sanwa
+that switches between 15.75 and 24 kHz (24.83 kHz in the text, 24.39 kHz on the switch).
+
+What follows (worked out):
+
+- **The preset stays as it is.** A second maker's tube has the same screen, the same trio pitch across, the
+  same white and the same convergence limits; only the vertical pitch (0.64 against 0.6 mm) and the corner pitch
+  differ a little. The Naomi's own manual gives the same rule for the picture's size, and Sanwa's timing chart
+  the 27 MHz and 640 dots that Console timing 12 uses.
+- **The spot is still not given**: both makers only say to set the focus as well as it goes.
+- **24 kHz games** (Sega Model 1, 2 and 3: 496x384). The MS-2931 is the same monitor in its 24 kHz mode (its
+  manual's mode 2 is "Model 3 (24k)"), and Model 3's standard cabinet had a 29-inch Nanao or Sanwa. Because the
+  tube is in mm, `systems/arcade-31khz` already draws a 496x384 frame as 384 lines over the same height, with
+  the same spot: checked offscreen, the lines' modulation is 28% at 5% of white, 20% at 10%, 8% at 30% and none
+  on white (at 480 lines: 10%, 6%, 1%). So the lines show more at 24 kHz, as they should. A 15 kHz frame is
+  not right on it: under 300 lines the VGA raster draws every line twice.
+
 ## What the preset does
 
 `systems/arcade-31khz` (and its flat, HDR, lite and super lite versions) is the PC monitor model with this tube:
@@ -154,8 +205,8 @@ Not checked: with Flycast and a game (the core is not installed here); the HDR v
 
 ## Not found
 
-- **The spot size**, or any focus figure. Two searches for close-up photos of this monitor at 31 kHz found
-  owners' remarks but no photo to measure. This is the value that decides how much of the lines shows, and it
+- **The spot size**, or any focus figure, in the MS-2931's manual or the 29E31S's. Two searches for close-up
+  photos of this monitor at 31 kHz found owners' remarks but no photo to measure. This is the value that decides how much of the lines shows, and it
   is an assumption.
 - The phosphors' chromaticities.
 - Whether the tube is a slot mask by name. A trio pitch with a vertical figure and the stripes in the drawing
