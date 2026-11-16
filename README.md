@@ -58,7 +58,7 @@ little rainbow, just as it did on a living-room TV. On RGB you see the stripes t
 Default core settings are fine for most systems. The few that matter are in
 [RECOMMENDED-CORES.md](shaders/lola-retro/RECOMMENDED-CORES.md).
 
-Using Amiberry, 86Box or Kodi instead? See [Amiberry](#amiberry), [86Box](#86box) and [Kodi](#kodi) below. Making a game in Unity?
+Using Amiberry, 86Box, Kodi or Batocera instead? See [Amiberry](#amiberry), [86Box](#86box), [Kodi](#kodi) and [Batocera](#batocera) below. Making a game in Unity?
 See [Unity](#unity).
 
 Every preset also comes in a `flat/` version without curvature:
@@ -231,6 +231,15 @@ flat, on the same passes and with the same values as in RetroArch, and the [supe
 weaker devices such as the NVIDIA Shield. Kodi lists the presets of its
 game.shader.presets add-on, so they go into that add-on's list; how, and the settings, are in its
 [README](kodi/lola-retro/README.md).
+
+## Batocera
+
+[lola-retro-batocera](https://github.com/neurocontrarian/lola-retro-batocera), made and kept up by neurocontrarian,
+packs Lola Retro as shader sets for [Batocera](https://batocera.org): pick one in Batocera's own menu (Game settings →
+Rendering & shaders → Shader set) and every system gets its preset, with no RetroArch settings to change. The presets
+are the ones in this repository, unchanged. I have no Batocera machine, so questions about the sets go to
+[its repository](https://github.com/neurocontrarian/lola-retro-batocera/issues) (see also
+[issue #19](https://github.com/zoran123456/lola-retro/issues/19)).
 
 ## Unity
 
