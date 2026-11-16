@@ -8,6 +8,12 @@ The Asset Store version goes up through the classic workflow (a package draft ma
 makes from the UPM package (`unity/lola-retro`), the same files with the Demo as an ordinary folder. Run it again
 after every change to the package.
 
+**No license file.** Every package on the Asset Store is under the Asset Store End User License Agreement, and a
+package with a license of its own is declined ("Sensitive and Restricted Content", request 3612798, 2026-11-16, for
+the MIT LICENSE). The script leaves LICENSE out of `Assets/Lola Retro`, gives its README a License section that
+names the EULA, makes its PDF manual again from that README, and stops if MIT is still named in a file. The UPM
+package and the rest of the repository on GitHub stay MIT.
+
 ## Uploading
 
 1. `tools/make_manual.py` when the package's README has changed (the PDF manual the Validator asks for), then
@@ -104,7 +110,7 @@ arrow keys.
 - Unity 6 (6000.0) or newer
 - The whole chain takes 2 to 3 ms per frame at 1080p to 1440p on an Apple M4 Pro (measured in WebGL 2); integrated
   graphics from the last few years should be fine at 1080p
-- The same picture as the RetroArch version it is made from, checked pixel for pixel; open source (MIT) on GitHub:
+- The same picture as the RetroArch version it is made from, checked pixel for pixel; the RetroArch shader is on GitHub:
   https://github.com/zoran123456/lola-retro
 - Documentation: the README in the package, and https://github.com/zoran123456/lola-retro/tree/main/unity/lola-retro
 

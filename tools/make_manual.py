@@ -165,16 +165,21 @@ def page(md, version):
 </body></html>"""
 
 
+def render(md, out, keep_html=None):
+    """The manual of README text md, printed to the PDF out (the Asset Store copy uses its own README)."""
+    version = json.loads((PACKAGE / "package.json").read_text())["version"]
+    text = page(md, version)
+    with tempfile.TemporaryDirectory() as tmp:
+        src = keep_html or Path(tmp) / "manual.html"
+        src.write_text(text)
+        subprocess.run(["swift", str(ROOT / "tools" / "html_to_pdf.swift"), str(src), str(out)], check=True)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--html", type=Path, help="also keep the HTML here")
     a = ap.parse_args()
-    version = json.loads((PACKAGE / "package.json").read_text())["version"]
-    text = page((PACKAGE / "README.md").read_text(), version)
-    with tempfile.TemporaryDirectory() as tmp:
-        src = a.html or Path(tmp) / "manual.html"
-        src.write_text(text)
-        subprocess.run(["swift", str(ROOT / "tools" / "html_to_pdf.swift"), str(src), str(OUT)], check=True)
+    render((PACKAGE / "README.md").read_text(), OUT, a.html)
     meta = OUT.with_name(OUT.name + ".meta")
     guid = hashlib.md5(("lola-retro-unity/" + OUT.relative_to(PACKAGE).as_posix()).encode()).hexdigest()
     meta.write_text(f"fileFormatVersion: 2\nguid: {guid}\nDefaultImporter:\n  externalObjects: {{}}\n"
